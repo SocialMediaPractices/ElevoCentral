@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Elevo Manager - Program Management System</title>
+  <meta name="description" content="Comprehensive web-based program management system for Elevo to coordinate before/after-school activities, manage staff, and communicate with parents" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #4B7BEC;
+      --secondary: #26DE81;
+      --accent: #FF6B6B;
+      --background: #F7F9FC;
+      --textColor: #2D3436;
+      --lightGray: #E2E8F0;
+      --darkGray: #718096;
+      --radius: 0.75rem;
+      
+      /* ShadCN Variables */
+      --background: 220 33% 98%;
+      --foreground: 217 33% 20%;
+      --card: 0 0% 100%;
+      --card-foreground: 217 33% 20%;
+      --popover: 0 0% 100%;
+      --popover-foreground: 217 33% 20%;
+      --primary: 222 88% 60%;
+      --primary-foreground: 210 40% 98%;
+      --secondary: 152 80% 51%;
+      --secondary-foreground: 210 40% 98%;
+      --muted: 210 40% 96.1%;
+      --muted-foreground: 215.4 16.3% 46.9%;
+      --accent: 0 84% 70%;
+      --accent-foreground: 210 40% 98%;
+      --destructive: 0 84.2% 60.2%;
+      --destructive-foreground: 210 40% 98%;
+      --border: 214.3 31.8% 91.4%;
+      --input: 214.3 31.8% 91.4%;
+      --ring: 221.2 83.2% 53.3%;
+      --radius: 0.75rem;
+    }
+
+    body {
+      font-family: 'Open Sans', sans-serif;
+      background-color: #F7F9FC;
+      color: #2D3436;
+    }
+    
+    h1, h2, h3, h4, h5, h6, .font-nunito {
+      font-family: 'Nunito', sans-serif;
+    }
+    
+    .before-school {
+      border-left: 4px solid #4B7BEC;
+    }
+    
+    .after-school {
+      border-left: 4px solid #26DE81;
+    }
+    
+    .special-event {
+      border-left: 4px solid #FF6B6B;
+    }
+    
+    .rounded-custom {
+      border-radius: 12px;
+    }
+    
+    .card {
+      border-radius: 12px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    .card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 8px rgba(0, 0, 0, 0.08);
+    }
+    
+    /* Mobile menu */
+    .mobile-menu-hidden {
+      transform: translateX(-100%);
+    }
+    
+    .mobile-menu-visible {
+      transform: translateX(0);
+    }
+    
+    @media (min-width: 1024px) {
+      .desktop-nav {
+        transform: translateX(0) !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+</html>
