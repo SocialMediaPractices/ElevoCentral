@@ -352,11 +352,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Get student and reporter info for each incident
     const incidentsWithDetails = await Promise.all(
       incidents.map(async (incident) => {
-        const student = await storage.getStudent(incident.studentId);
-        const reporter = await storage.getStaff(incident.reportedByStaffId);
+        const student = incident.studentId ? await storage.getStudent(incident.studentId) : undefined;
+        const reporter = incident.reportedByStaffId ? await storage.getStaff(incident.reportedByStaffId) : undefined;
         
         let reporterInfo = undefined;
-        if (reporter) {
+        if (reporter && reporter.userId) {
           const reporterUser = await storage.getUser(reporter.userId);
           if (reporterUser) {
             reporterInfo = {
@@ -395,11 +395,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(404).json({ message: "Incident not found" });
     }
     
-    const student = await storage.getStudent(incident.studentId);
-    const reporter = await storage.getStaff(incident.reportedByStaffId);
+    const student = incident.studentId ? await storage.getStudent(incident.studentId) : undefined;
+    const reporter = incident.reportedByStaffId ? await storage.getStaff(incident.reportedByStaffId) : undefined;
     
     let reporterInfo = undefined;
-    if (reporter) {
+    if (reporter && reporter.userId) {
       const reporterUser = await storage.getUser(reporter.userId);
       if (reporterUser) {
         reporterInfo = {
@@ -491,11 +491,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Get student and staff info for each note
     const notesWithDetails = await Promise.all(
       notes.map(async (note) => {
-        const student = await storage.getStudent(note.studentId);
-        const staffMember = await storage.getStaff(note.staffId);
+        const student = note.studentId ? await storage.getStudent(note.studentId) : undefined;
+        const staffMember = note.staffId ? await storage.getStaff(note.staffId) : undefined;
         
         let staffInfo = undefined;
-        if (staffMember) {
+        if (staffMember && staffMember.userId) {
           const staffUser = await storage.getUser(staffMember.userId);
           if (staffUser) {
             staffInfo = {
@@ -568,11 +568,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Get student and staff info for each transition
     const transitionsWithDetails = await Promise.all(
       transitions.map(async (transition) => {
-        const student = await storage.getStudent(transition.studentId);
-        const authorizer = await storage.getStaff(transition.authorizedById);
+        const student = transition.studentId ? await storage.getStudent(transition.studentId) : undefined;
+        const authorizer = transition.authorizedById ? await storage.getStaff(transition.authorizedById) : undefined;
         
         let authorizerInfo = undefined;
-        if (authorizer) {
+        if (authorizer && authorizer.userId) {
           const authorizerUser = await storage.getUser(authorizer.userId);
           if (authorizerUser) {
             authorizerInfo = {
@@ -623,7 +623,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const announcements = await storage.getRecentAnnouncements(3);
     
     // Calculate total students across all activities for today
-    const studentCount = activities.reduce((total, activity) => total + activity.studentCount, 0);
+    const studentCount = activities.reduce((total, activity) => total + (activity.studentCount || 0), 0);
     
     res.json({
       studentCount,
