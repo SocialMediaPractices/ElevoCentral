@@ -110,3 +110,14 @@ export function getAudienceTagColors(audience: string): { bg: string; text: stri
 export function getToday(): string {
   return new Date().toISOString().split('T')[0];
 }
+
+export function getAvatarLetters(name: string): string {
+  if (!name) return '';
+  
+  const parts = name.split(' ').filter(part => part.length > 0);
+  
+  if (parts.length === 0) return '';
+  if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+  
+  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+}

@@ -7,7 +7,11 @@ import {
   insertAnnouncementSchema, 
   insertStaffSchema, 
   insertStaffActivitySchema, 
-  insertUserSchema 
+  insertUserSchema,
+  insertStudentSchema,
+  insertBehaviorIncidentSchema,
+  insertBehaviorNoteSchema,
+  insertTierTransitionSchema
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -191,7 +195,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     const announcementsWithAuthor = await Promise.all(
       announcements.map(async (announcement) => {
-        const author = await storage.getUser(announcement.authorId);
+        const author = announcement.authorId ? await storage.getUser(announcement.authorId) : null;
         return {
           ...announcement,
           author: author ? {
@@ -217,7 +221,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(404).json({ message: "Announcement not found" });
     }
     
-    const author = await storage.getUser(announcement.authorId);
+    const author = announcement.authorId ? await storage.getUser(announcement.authorId) : null;
     
     res.json({
       ...announcement,
@@ -234,7 +238,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const announcementData = insertAnnouncementSchema.parse(req.body);
       const announcement = await storage.createAnnouncement(announcementData);
       
-      const author = await storage.getUser(announcement.authorId);
+      const author = announcement.authorId ? await storage.getUser(announcement.authorId) : null;
       
       res.status(201).json({
         ...announcement,
@@ -253,6 +257,363 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Students routes
+  app.get("/api/students", async (req, res) => {
+    const { tier } = req.query;
+    
+    let students;
+    if (tier) {
+      students = await storage.getStudentsByTier(tier as string);
+    } else {
+      students = await storage.getAllStudents();
+    }
+    
+    // Get parent info for each student
+    const studentsWithParentInfo = await Promise.all(
+      students.map(async (student) => {
+        if (student.parentId) {
+          const parent = await storage.getUser(student.parentId);
+          return {
+            ...student,
+            parent: parent ? {
+              id: parent.id,
+              fullName: parent.fullName,
+              profileImageUrl: parent.profileImageUrl
+            } : undefined
+          };
+        }
+        return student;
+      })
+    );
+    
+    res.json(studentsWithParentInfo);
+  });
+  
+  app.get("/api/students/:id", async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid student ID" });
+    }
+    
+    const student = await storage.getStudent(id);
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+    
+    // Get parent info
+    let parentInfo = undefined;
+    if (student.parentId) {
+      const parent = await storage.getUser(student.parentId);
+      if (parent) {
+        parentInfo = {
+          id: parent.id,
+          fullName: parent.fullName,
+          profileImageUrl: parent.profileImageUrl
+        };
+      }
+    }
+    
+    res.json({
+      ...student,
+      parent: parentInfo
+    });
+  });
+  
+  app.post("/api/students", async (req, res) => {
+    try {
+      const studentData = insertStudentSchema.parse(req.body);
+      const student = await storage.createStudent(studentData);
+      res.status(201).json(student);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Invalid student data", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to create student" });
+      }
+    }
+  });
+  
+  // Behavior Incidents routes
+  app.get("/api/behavior-incidents", async (req, res) => {
+    const { studentId, date, limit } = req.query;
+    
+    let incidents;
+    if (studentId) {
+      incidents = await storage.getIncidentsByStudent(parseInt(studentId as string));
+    } else if (date) {
+      incidents = await storage.getIncidentsByDate(date as string);
+    } else if (limit) {
+      incidents = await storage.getRecentIncidents(parseInt(limit as string));
+    } else {
+      // Default to recent incidents if no filters are provided
+      incidents = await storage.getRecentIncidents(10);
+    }
+    
+    // Get student and reporter info for each incident
+    const incidentsWithDetails = await Promise.all(
+      incidents.map(async (incident) => {
+        const student = await storage.getStudent(incident.studentId);
+        const reporter = await storage.getStaff(incident.reportedByStaffId);
+        
+        let reporterInfo = undefined;
+        if (reporter) {
+          const reporterUser = await storage.getUser(reporter.userId);
+          if (reporterUser) {
+            reporterInfo = {
+              id: reporter.id,
+              name: reporterUser.fullName,
+              title: reporter.title,
+              profileImageUrl: reporterUser.profileImageUrl
+            };
+          }
+        }
+        
+        return {
+          ...incident,
+          student: student ? {
+            id: student.id,
+            name: `${student.firstName} ${student.lastName}`,
+            grade: student.grade,
+            profileImageUrl: student.profileImageUrl
+          } : undefined,
+          reporter: reporterInfo
+        };
+      })
+    );
+    
+    res.json(incidentsWithDetails);
+  });
+  
+  app.get("/api/behavior-incidents/:id", async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid incident ID" });
+    }
+    
+    const incident = await storage.getBehaviorIncident(id);
+    if (!incident) {
+      return res.status(404).json({ message: "Incident not found" });
+    }
+    
+    const student = await storage.getStudent(incident.studentId);
+    const reporter = await storage.getStaff(incident.reportedByStaffId);
+    
+    let reporterInfo = undefined;
+    if (reporter) {
+      const reporterUser = await storage.getUser(reporter.userId);
+      if (reporterUser) {
+        reporterInfo = {
+          id: reporter.id,
+          name: reporterUser.fullName,
+          title: reporter.title,
+          profileImageUrl: reporterUser.profileImageUrl
+        };
+      }
+    }
+    
+    res.json({
+      ...incident,
+      student: student ? {
+        id: student.id,
+        name: `${student.firstName} ${student.lastName}`,
+        grade: student.grade,
+        profileImageUrl: student.profileImageUrl
+      } : undefined,
+      reporter: reporterInfo
+    });
+  });
+  
+  app.post("/api/behavior-incidents", async (req, res) => {
+    try {
+      const incidentData = insertBehaviorIncidentSchema.parse(req.body);
+      const incident = await storage.createBehaviorIncident(incidentData);
+      res.status(201).json(incident);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Invalid incident data", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to create incident" });
+      }
+    }
+  });
+  
+  app.patch("/api/behavior-incidents/:id/resolve", async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid incident ID" });
+    }
+    
+    const { actionTaken } = req.body;
+    if (!actionTaken) {
+      return res.status(400).json({ message: "Action taken is required" });
+    }
+    
+    try {
+      const updatedIncident = await storage.resolveIncident(id, actionTaken);
+      res.json(updatedIncident);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to resolve incident" });
+    }
+  });
+  
+  app.patch("/api/behavior-incidents/:id/notify-parent", async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid incident ID" });
+    }
+    
+    const notificationDate = req.body.date || new Date().toISOString().split('T')[0];
+    
+    try {
+      const updatedIncident = await storage.setParentNotified(id, notificationDate);
+      res.json(updatedIncident);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update parent notification status" });
+    }
+  });
+  
+  // Behavior Notes routes
+  app.get("/api/behavior-notes", async (req, res) => {
+    const { studentId, limit, parentVisible } = req.query;
+    
+    let notes;
+    if (studentId && parentVisible === "true") {
+      notes = await storage.getParentVisibleNotes(parseInt(studentId as string));
+    } else if (studentId) {
+      notes = await storage.getNotesByStudent(parseInt(studentId as string));
+    } else if (limit) {
+      notes = await storage.getRecentNotes(parseInt(limit as string));
+    } else {
+      // Default to recent notes if no filters are provided
+      notes = await storage.getRecentNotes(10);
+    }
+    
+    // Get student and staff info for each note
+    const notesWithDetails = await Promise.all(
+      notes.map(async (note) => {
+        const student = await storage.getStudent(note.studentId);
+        const staffMember = await storage.getStaff(note.staffId);
+        
+        let staffInfo = undefined;
+        if (staffMember) {
+          const staffUser = await storage.getUser(staffMember.userId);
+          if (staffUser) {
+            staffInfo = {
+              id: staffMember.id,
+              name: staffUser.fullName,
+              title: staffMember.title,
+              profileImageUrl: staffUser.profileImageUrl
+            };
+          }
+        }
+        
+        return {
+          ...note,
+          student: student ? {
+            id: student.id,
+            name: `${student.firstName} ${student.lastName}`,
+            grade: student.grade,
+            profileImageUrl: student.profileImageUrl
+          } : undefined,
+          staff: staffInfo
+        };
+      })
+    );
+    
+    res.json(notesWithDetails);
+  });
+  
+  app.post("/api/behavior-notes", async (req, res) => {
+    try {
+      const noteData = insertBehaviorNoteSchema.parse(req.body);
+      const note = await storage.createBehaviorNote(noteData);
+      res.status(201).json(note);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Invalid note data", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to create behavior note" });
+      }
+    }
+  });
+  
+  app.patch("/api/behavior-notes/:id/mark-read", async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid note ID" });
+    }
+    
+    try {
+      const updatedNote = await storage.markNoteAsReadByParent(id);
+      res.json(updatedNote);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to mark note as read" });
+    }
+  });
+  
+  // Tier Transitions routes
+  app.get("/api/tier-transitions", async (req, res) => {
+    const { studentId, limit } = req.query;
+    
+    let transitions;
+    if (studentId) {
+      transitions = await storage.getTransitionsByStudent(parseInt(studentId as string));
+    } else if (limit) {
+      transitions = await storage.getRecentTransitions(parseInt(limit as string));
+    } else {
+      // Default to recent transitions if no filters are provided
+      transitions = await storage.getRecentTransitions(10);
+    }
+    
+    // Get student and staff info for each transition
+    const transitionsWithDetails = await Promise.all(
+      transitions.map(async (transition) => {
+        const student = await storage.getStudent(transition.studentId);
+        const authorizer = await storage.getStaff(transition.authorizedById);
+        
+        let authorizerInfo = undefined;
+        if (authorizer) {
+          const authorizerUser = await storage.getUser(authorizer.userId);
+          if (authorizerUser) {
+            authorizerInfo = {
+              id: authorizer.id,
+              name: authorizerUser.fullName,
+              title: authorizer.title,
+              profileImageUrl: authorizerUser.profileImageUrl
+            };
+          }
+        }
+        
+        return {
+          ...transition,
+          student: student ? {
+            id: student.id,
+            name: `${student.firstName} ${student.lastName}`,
+            grade: student.grade,
+            profileImageUrl: student.profileImageUrl
+          } : undefined,
+          authorizedBy: authorizerInfo
+        };
+      })
+    );
+    
+    res.json(transitionsWithDetails);
+  });
+  
+  app.post("/api/tier-transitions", async (req, res) => {
+    try {
+      const transitionData = insertTierTransitionSchema.parse(req.body);
+      const transition = await storage.createTierTransition(transitionData);
+      res.status(201).json(transition);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Invalid transition data", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to create tier transition" });
+      }
+    }
+  });
+
   // Dashboard stats endpoint
   app.get("/api/dashboard/stats", async (req, res) => {
     const date = req.query.date as string || new Date().toISOString().split('T')[0];

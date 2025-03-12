@@ -6,6 +6,7 @@ import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/Dashboard";
 import Programs from "@/pages/Programs";
 import Staff from "@/pages/Staff";
+import Students from "@/pages/Students";
 import Events from "@/pages/Events";
 import Clubs from "@/pages/Clubs";
 import Messages from "@/pages/Messages";
@@ -20,6 +21,7 @@ function Router() {
       <Route path="/" component={Dashboard} />
       <Route path="/programs" component={Programs} />
       <Route path="/staff" component={Staff} />
+      <Route path="/students" component={Students} />
       <Route path="/events" component={Events} />
       <Route path="/clubs" component={Clubs} />
       <Route path="/messages" component={Messages} />
