@@ -17,6 +17,15 @@ export const userRoleEnum = pgEnum('user_role', [
   'admin', 'staff', 'parent'
 ]);
 
+// Behavior tier enum
+export const behaviorTierEnum = pgEnum('behavior_tier', [
+  'good-standing', 'tier-1', 'tier-2', 'tier-3', 'suspended'
+]);
+
+// Behavior incident type enum
+export const incidentTypeEnum = pgEnum('incident_type', [
+  'disruption', 'disrespect', 'physical', 'property-damage', 'bullying', 'other'
+]);
 // Users table
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -123,3 +132,128 @@ export type StaffActivity = typeof staffActivities.$inferSelect;
 
 export type InsertAnnouncement = z.infer<typeof insertAnnouncementSchema>;
 export type Announcement = typeof announcements.$inferSelect;
+
+// Students table
+export const students = pgTable("students", {
+  id: serial("id").primaryKey(),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
+  grade: text("grade").notNull(),
+  parentId: integer("parent_id").references(() => users.id),
+  profileImageUrl: text("profile_image_url"),
+  emergencyContact: text("emergency_contact"),
+  medicalNotes: text("medical_notes"),
+  currentTier: behaviorTierEnum("current_tier").default("good-standing").notNull(),
+  tierUpdateDate: text("tier_update_date"), // Format: "YYYY-MM-DD"
+});
+
+// Behavior incidents table
+export const behaviorIncidents = pgTable("behavior_incidents", {
+  id: serial("id").primaryKey(),
+  studentId: integer("student_id").references(() => students.id),
+  reportedByStaffId: integer("reported_by_staff_id").references(() => staff.id),
+  incidentDate: text("incident_date").notNull(), // Format: "YYYY-MM-DD"
+  incidentTime: text("incident_time").notNull(), // Format: "HH:MM"
+  incidentType: incidentTypeEnum("incident_type").notNull(),
+  description: text("description").notNull(),
+  location: text("location").notNull(),
+  witnessNames: text("witness_names").array(),
+  actionTaken: text("action_taken"),
+  parentNotified: boolean("parent_notified").default(false),
+  parentNotificationDate: text("parent_notification_date"), // Format: "YYYY-MM-DD"
+  followUpRequired: boolean("follow_up_required").default(false),
+  isResolved: boolean("is_resolved").default(false),
+});
+
+// Behavior notes table (for general comments/observations)
+export const behaviorNotes = pgTable("behavior_notes", {
+  id: serial("id").primaryKey(),
+  studentId: integer("student_id").references(() => students.id),
+  staffId: integer("staff_id").references(() => staff.id),
+  date: text("date").notNull(), // Format: "YYYY-MM-DD"
+  time: text("time").notNull(), // Format: "HH:MM"
+  note: text("note").notNull(),
+  isPositive: boolean("is_positive").default(true),
+  isPrivate: boolean("is_private").default(false), // If true, not shared with parents
+  parentRead: boolean("parent_read").default(false),
+});
+
+// Tier transition records
+export const tierTransitions = pgTable("tier_transitions", {
+  id: serial("id").primaryKey(),
+  studentId: integer("student_id").references(() => students.id),
+  fromTier: behaviorTierEnum("from_tier").notNull(),
+  toTier: behaviorTierEnum("to_tier").notNull(),
+  date: text("date").notNull(), // Format: "YYYY-MM-DD"
+  reason: text("reason").notNull(),
+  authorizedById: integer("authorized_by_id").references(() => staff.id),
+  parentNotified: boolean("parent_notified").default(false),
+  parentNotificationDate: text("parent_notification_date"), // Format: "YYYY-MM-DD"
+  incidentIds: integer("incident_ids").array(),
+});
+
+// Insert schemas for new tables
+export const insertStudentSchema = createInsertSchema(students).pick({
+  firstName: true,
+  lastName: true,
+  grade: true,
+  parentId: true,
+  profileImageUrl: true,
+  emergencyContact: true,
+  medicalNotes: true,
+  currentTier: true,
+  tierUpdateDate: true,
+});
+
+export const insertBehaviorIncidentSchema = createInsertSchema(behaviorIncidents).pick({
+  studentId: true,
+  reportedByStaffId: true,
+  incidentDate: true,
+  incidentTime: true,
+  incidentType: true,
+  description: true,
+  location: true,
+  witnessNames: true,
+  actionTaken: true,
+  parentNotified: true,
+  parentNotificationDate: true,
+  followUpRequired: true,
+  isResolved: true,
+});
+
+export const insertBehaviorNoteSchema = createInsertSchema(behaviorNotes).pick({
+  studentId: true,
+  staffId: true,
+  date: true,
+  time: true,
+  note: true,
+  isPositive: true,
+  isPrivate: true,
+  parentRead: true,
+});
+
+export const insertTierTransitionSchema = createInsertSchema(tierTransitions).pick({
+  studentId: true,
+  fromTier: true,
+  toTier: true,
+  date: true,
+  reason: true,
+  authorizedById: true,
+  parentNotified: true,
+  parentNotificationDate: true,
+  incidentIds: true,
+});
+
+// Additional types for new tables
+export type InsertStudent = z.infer<typeof insertStudentSchema>;
+export type Student = typeof students.$inferSelect;
+
+export type InsertBehaviorIncident = z.infer<typeof insertBehaviorIncidentSchema>;
+export type BehaviorIncident = typeof behaviorIncidents.$inferSelect;
+
+export type InsertBehaviorNote = z.infer<typeof insertBehaviorNoteSchema>;
+export type BehaviorNote = typeof behaviorNotes.$inferSelect;
+
+export type InsertTierTransition = z.infer<typeof insertTierTransitionSchema>;
+export type TierTransition = typeof tierTransitions.$inferSelect;
+

@@ -1,0 +1,30 @@
+  // Student methods
+  getStudent(id: number): Promise<Student | undefined>;
+  getStudentsByParentId(parentId: number): Promise<Student[]>;
+  createStudent(student: InsertStudent): Promise<Student>;
+  getAllStudents(): Promise<Student[]>;
+  getStudentsByTier(tier: string): Promise<Student[]>;
+  updateStudentTier(studentId: number, tier: string, updateDate: string): Promise<Student>;
+  
+  // Behavior Incident methods
+  getBehaviorIncident(id: number): Promise<BehaviorIncident | undefined>;
+  createBehaviorIncident(incident: InsertBehaviorIncident): Promise<BehaviorIncident>;
+  getIncidentsByStudent(studentId: number): Promise<BehaviorIncident[]>;
+  getIncidentsByDate(date: string): Promise<BehaviorIncident[]>;
+  getRecentIncidents(limit: number): Promise<BehaviorIncident[]>;
+  resolveIncident(id: number, actionTaken: string): Promise<BehaviorIncident>;
+  setParentNotified(id: number, notificationDate: string): Promise<BehaviorIncident>;
+  
+  // Behavior Notes methods
+  getBehaviorNote(id: number): Promise<BehaviorNote | undefined>;
+  createBehaviorNote(note: InsertBehaviorNote): Promise<BehaviorNote>;
+  getNotesByStudent(studentId: number): Promise<BehaviorNote[]>;
+  getRecentNotes(limit: number): Promise<BehaviorNote[]>;
+  getParentVisibleNotes(studentId: number): Promise<BehaviorNote[]>;
+  markNoteAsReadByParent(id: number): Promise<BehaviorNote>;
+  
+  // Tier Transition methods
+  getTierTransition(id: number): Promise<TierTransition | undefined>;
+  createTierTransition(transition: InsertTierTransition): Promise<TierTransition>;
+  getTransitionsByStudent(studentId: number): Promise<TierTransition[]>;
+  getRecentTransitions(limit: number): Promise<TierTransition[]>;

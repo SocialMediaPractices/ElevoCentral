@@ -1,4 +1,8 @@
-import { 
+import {
+  students, type Student, type InsertStudent,
+  behaviorIncidents, type BehaviorIncident, type InsertBehaviorIncident,
+  behaviorNotes, type BehaviorNote, type InsertBehaviorNote,
+  tierTransitions, type TierTransition, type InsertTierTransition,
   users, type User, type InsertUser, 
   staff, type Staff, type InsertStaff,
   activities, type Activity, type InsertActivity,
@@ -39,33 +43,84 @@ export interface IStorage {
   createAnnouncement(announcement: InsertAnnouncement): Promise<Announcement>;
   getAllAnnouncements(): Promise<Announcement[]>;
   getRecentAnnouncements(limit: number): Promise<Announcement[]>;
+
+  // Student methods
+  getStudent(id: number): Promise<Student | undefined>;
+  getStudentsByParentId(parentId: number): Promise<Student[]>;
+  createStudent(student: InsertStudent): Promise<Student>;
+  getAllStudents(): Promise<Student[]>;
+  getStudentsByTier(tier: string): Promise<Student[]>;
+  updateStudentTier(studentId: number, tier: string, updateDate: string): Promise<Student>;
+  
+  // Behavior Incident methods
+  getBehaviorIncident(id: number): Promise<BehaviorIncident | undefined>;
+  createBehaviorIncident(incident: InsertBehaviorIncident): Promise<BehaviorIncident>;
+  getIncidentsByStudent(studentId: number): Promise<BehaviorIncident[]>;
+  getIncidentsByDate(date: string): Promise<BehaviorIncident[]>;
+  getRecentIncidents(limit: number): Promise<BehaviorIncident[]>;
+  resolveIncident(id: number, actionTaken: string): Promise<BehaviorIncident>;
+  setParentNotified(id: number, notificationDate: string): Promise<BehaviorIncident>;
+  
+  // Behavior Notes methods
+  getBehaviorNote(id: number): Promise<BehaviorNote | undefined>;
+  createBehaviorNote(note: InsertBehaviorNote): Promise<BehaviorNote>;
+  getNotesByStudent(studentId: number): Promise<BehaviorNote[]>;
+  getRecentNotes(limit: number): Promise<BehaviorNote[]>;
+  getParentVisibleNotes(studentId: number): Promise<BehaviorNote[]>;
+  markNoteAsReadByParent(id: number): Promise<BehaviorNote>;
+  
+  // Tier Transition methods
+  getTierTransition(id: number): Promise<TierTransition | undefined>;
+  createTierTransition(transition: InsertTierTransition): Promise<TierTransition>;
+  getTransitionsByStudent(studentId: number): Promise<TierTransition[]>;
+  getRecentTransitions(limit: number): Promise<TierTransition[]>;
 }
 
 export class MemStorage implements IStorage {
+  // Data storage
+  private students: Map<number, Student>;
+  private behaviorIncidents: Map<number, BehaviorIncident>;
+  private behaviorNotes: Map<number, BehaviorNote>;
+  private tierTransitions: Map<number, TierTransition>;
   private users: Map<number, User>;
   private staff: Map<number, Staff>;
   private activities: Map<number, Activity>;
   private staffActivities: Map<number, StaffActivity>;
   private announcements: Map<number, Announcement>;
   
+  // ID counters for auto-increment
   private userIdCounter: number;
   private staffIdCounter: number;
   private activityIdCounter: number;
   private staffActivityIdCounter: number;
   private announcementIdCounter: number;
+  private studentIdCounter: number;
+  private behaviorIncidentIdCounter: number;
+  private behaviorNoteIdCounter: number;
+  private tierTransitionIdCounter: number;
 
   constructor() {
+    // Initialize maps
     this.users = new Map();
     this.staff = new Map();
     this.activities = new Map();
     this.staffActivities = new Map();
     this.announcements = new Map();
+    this.students = new Map();
+    this.behaviorIncidents = new Map();
+    this.behaviorNotes = new Map();
+    this.tierTransitions = new Map();
     
+    // Initialize ID counters
     this.userIdCounter = 1;
     this.staffIdCounter = 1;
     this.activityIdCounter = 1;
     this.staffActivityIdCounter = 1;
     this.announcementIdCounter = 1;
+    this.studentIdCounter = 1;
+    this.behaviorIncidentIdCounter = 1;
+    this.behaviorNoteIdCounter = 1;
+    this.tierTransitionIdCounter = 1;
     
     // Initialize with sample data
     this.initializeSampleData();
@@ -207,6 +262,217 @@ export class MemStorage implements IStorage {
       .slice(0, limit);
   }
 
+  // Student methods
+  async getStudent(id: number): Promise<Student | undefined> {
+    return this.students.get(id);
+  }
+
+  async getStudentsByParentId(parentId: number): Promise<Student[]> {
+    return Array.from(this.students.values()).filter(
+      student => student.parentId === parentId
+    );
+  }
+
+  async createStudent(insertStudent: InsertStudent): Promise<Student> {
+    const id = this.studentIdCounter++;
+    const student: Student = { ...insertStudent, id };
+    this.students.set(id, student);
+    return student;
+  }
+
+  async getAllStudents(): Promise<Student[]> {
+    return Array.from(this.students.values());
+  }
+
+  async getStudentsByTier(tier: string): Promise<Student[]> {
+    return Array.from(this.students.values()).filter(
+      student => student.currentTier === tier
+    );
+  }
+
+  async updateStudentTier(studentId: number, tier: string, updateDate: string): Promise<Student> {
+    const student = await this.getStudent(studentId);
+    if (!student) {
+      throw new Error(`Student with ID ${studentId} not found`);
+    }
+    
+    const updatedStudent: Student = {
+      ...student,
+      currentTier: tier as any, // Cast to satisfy TypeScript
+      tierUpdateDate: updateDate
+    };
+    
+    this.students.set(studentId, updatedStudent);
+    return updatedStudent;
+  }
+
+  // Behavior Incident methods
+  async getBehaviorIncident(id: number): Promise<BehaviorIncident | undefined> {
+    return this.behaviorIncidents.get(id);
+  }
+
+  async createBehaviorIncident(insertIncident: InsertBehaviorIncident): Promise<BehaviorIncident> {
+    const id = this.behaviorIncidentIdCounter++;
+    const incident: BehaviorIncident = { ...insertIncident, id };
+    this.behaviorIncidents.set(id, incident);
+    return incident;
+  }
+
+  async getIncidentsByStudent(studentId: number): Promise<BehaviorIncident[]> {
+    return Array.from(this.behaviorIncidents.values())
+      .filter(incident => incident.studentId === studentId);
+  }
+
+  async getIncidentsByDate(date: string): Promise<BehaviorIncident[]> {
+    return Array.from(this.behaviorIncidents.values())
+      .filter(incident => incident.incidentDate === date);
+  }
+
+  async getRecentIncidents(limit: number): Promise<BehaviorIncident[]> {
+    return Array.from(this.behaviorIncidents.values())
+      .sort((a, b) => {
+        // Sort by date and time, most recent first
+        const dateA = new Date(`${a.incidentDate} ${a.incidentTime}`);
+        const dateB = new Date(`${b.incidentDate} ${b.incidentTime}`);
+        return dateB.getTime() - dateA.getTime();
+      })
+      .slice(0, limit);
+  }
+
+  async resolveIncident(id: number, actionTaken: string): Promise<BehaviorIncident> {
+    const incident = await this.getBehaviorIncident(id);
+    if (!incident) {
+      throw new Error(`Incident with ID ${id} not found`);
+    }
+    
+    const updatedIncident: BehaviorIncident = {
+      ...incident,
+      actionTaken,
+      isResolved: true
+    };
+    
+    this.behaviorIncidents.set(id, updatedIncident);
+    return updatedIncident;
+  }
+
+  async setParentNotified(id: number, notificationDate: string): Promise<BehaviorIncident> {
+    const incident = await this.getBehaviorIncident(id);
+    if (!incident) {
+      throw new Error(`Incident with ID ${id} not found`);
+    }
+    
+    const updatedIncident: BehaviorIncident = {
+      ...incident,
+      parentNotified: true,
+      parentNotificationDate: notificationDate
+    };
+    
+    this.behaviorIncidents.set(id, updatedIncident);
+    return updatedIncident;
+  }
+
+  // Behavior Notes methods
+  async getBehaviorNote(id: number): Promise<BehaviorNote | undefined> {
+    return this.behaviorNotes.get(id);
+  }
+
+  async createBehaviorNote(insertNote: InsertBehaviorNote): Promise<BehaviorNote> {
+    const id = this.behaviorNoteIdCounter++;
+    const note: BehaviorNote = { ...insertNote, id };
+    this.behaviorNotes.set(id, note);
+    return note;
+  }
+
+  async getNotesByStudent(studentId: number): Promise<BehaviorNote[]> {
+    return Array.from(this.behaviorNotes.values())
+      .filter(note => note.studentId === studentId)
+      .sort((a, b) => {
+        // Sort by date and time, most recent first
+        const dateA = new Date(`${a.date} ${a.time}`);
+        const dateB = new Date(`${b.date} ${b.time}`);
+        return dateB.getTime() - dateA.getTime();
+      });
+  }
+
+  async getRecentNotes(limit: number): Promise<BehaviorNote[]> {
+    return Array.from(this.behaviorNotes.values())
+      .sort((a, b) => {
+        // Sort by date and time, most recent first
+        const dateA = new Date(`${a.date} ${a.time}`);
+        const dateB = new Date(`${b.date} ${b.time}`);
+        return dateB.getTime() - dateA.getTime();
+      })
+      .slice(0, limit);
+  }
+
+  async getParentVisibleNotes(studentId: number): Promise<BehaviorNote[]> {
+    return Array.from(this.behaviorNotes.values())
+      .filter(note => note.studentId === studentId && !note.isPrivate)
+      .sort((a, b) => {
+        // Sort by date and time, most recent first
+        const dateA = new Date(`${a.date} ${a.time}`);
+        const dateB = new Date(`${b.date} ${b.time}`);
+        return dateB.getTime() - dateA.getTime();
+      });
+  }
+
+  async markNoteAsReadByParent(id: number): Promise<BehaviorNote> {
+    const note = await this.getBehaviorNote(id);
+    if (!note) {
+      throw new Error(`Note with ID ${id} not found`);
+    }
+    
+    const updatedNote: BehaviorNote = {
+      ...note,
+      parentRead: true
+    };
+    
+    this.behaviorNotes.set(id, updatedNote);
+    return updatedNote;
+  }
+
+  // Tier Transition methods
+  async getTierTransition(id: number): Promise<TierTransition | undefined> {
+    return this.tierTransitions.get(id);
+  }
+
+  async createTierTransition(insertTransition: InsertTierTransition): Promise<TierTransition> {
+    const id = this.tierTransitionIdCounter++;
+    const transition: TierTransition = { ...insertTransition, id };
+    this.tierTransitions.set(id, transition);
+    
+    // Also update the student's current tier
+    await this.updateStudentTier(
+      transition.studentId,
+      transition.toTier as string,
+      transition.date
+    );
+    
+    return transition;
+  }
+
+  async getTransitionsByStudent(studentId: number): Promise<TierTransition[]> {
+    return Array.from(this.tierTransitions.values())
+      .filter(transition => transition.studentId === studentId)
+      .sort((a, b) => {
+        // Sort by date, most recent first
+        const dateA = new Date(a.date);
+        const dateB = new Date(b.date);
+        return dateB.getTime() - dateA.getTime();
+      });
+  }
+
+  async getRecentTransitions(limit: number): Promise<TierTransition[]> {
+    return Array.from(this.tierTransitions.values())
+      .sort((a, b) => {
+        // Sort by date, most recent first
+        const dateA = new Date(a.date);
+        const dateB = new Date(b.date);
+        return dateB.getTime() - dateA.getTime();
+      })
+      .slice(0, limit);
+  }
+
   // Initialize sample data for development
   private async initializeSampleData() {
     // Create users
@@ -274,6 +540,31 @@ export class MemStorage implements IStorage {
         fullName: "Robert Thompson",
         role: "staff",
         profileImageUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-1.2.1&auto=format&fit=crop&w=100&q=80"
+      })
+    ];
+    
+    // Create parent users
+    const parentUsers = [
+      await this.createUser({
+        username: "parent1",
+        password: "password",
+        fullName: "Jennifer Davis",
+        role: "parent",
+        profileImageUrl: "https://images.unsplash.com/photo-1567532939604-b6b5b0db2604?ixlib=rb-1.2.1&auto=format&fit=crop&w=100&q=80"
+      }),
+      await this.createUser({
+        username: "parent2",
+        password: "password",
+        fullName: "David Wilson",
+        role: "parent",
+        profileImageUrl: "https://images.unsplash.com/photo-1568602471122-7832951cc4c5?ixlib=rb-1.2.1&auto=format&fit=crop&w=100&q=80"
+      }),
+      await this.createUser({
+        username: "parent3",
+        password: "password",
+        fullName: "Maria Lopez",
+        role: "parent",
+        profileImageUrl: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?ixlib=rb-1.2.1&auto=format&fit=crop&w=100&q=80"
       })
     ];
 
@@ -449,30 +740,196 @@ export class MemStorage implements IStorage {
 
     // Create announcements
     await this.createAnnouncement({
-      title: "Fall Festival Preparation - Volunteers Needed!",
-      content: "Our annual Fall Festival is coming up on October 28th. We need parent volunteers to help with decorations, activities, and snack coordination. Please sign up at the front desk or contact Ms. Mitchell directly.",
-      createdAt: `${today} 09:15`,
+      title: "Spring Activity Fair Next Week",
+      content: "Join us next Friday for our Spring Activity Fair! Students will have the opportunity to try out new enrichment activities for the upcoming season.",
+      createdAt: today + " 09:15",
       authorId: adminUser.id,
-      targetAudience: ["Parents", "Staff"]
+      targetAudience: ["Parents", "Staff", "School-wide"]
     });
     
     await this.createAnnouncement({
-      title: "Trinity Theater Showcase - Schedule Change",
-      content: "The Trinity Theater group will be showcasing their fall performance on Friday, October 20th at 5:30 PM instead of the previously scheduled Thursday slot. All parents are invited to attend. The performance will last approximately 45 minutes.",
-      createdAt: `${today} 11:32`,
-      authorId: staffUsers[6].id,
-      targetAudience: ["Parents", "Event"]
+      title: "Staff Meeting Today",
+      content: "Reminder: All staff should attend the brief meeting at 2:15pm today to discuss next week's field trip logistics.",
+      createdAt: today + " 08:30",
+      authorId: adminUser.id,
+      targetAudience: ["Staff"]
     });
     
     await this.createAnnouncement({
-      title: "Staff Meeting - Wednesday Reminder",
-      content: "Reminder that we have our monthly staff meeting this Wednesday at 6:15 PM after program hours. We'll be discussing the upcoming schedule changes, Fall Festival coordination, and professional development opportunities. Light dinner will be provided.",
-      createdAt: `${today} 14:04`,
-      authorId: adminUser.id,
-      targetAudience: ["Staff Only"]
+      title: "Parent-Teacher Conferences",
+      content: "Parent-Teacher conferences will be held next Thursday and Friday. Please sign up for a slot using the online portal.",
+      createdAt: (new Date(new Date(today).getTime() - 2 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0] + " 14:00",
+      authorId: staffUsers[2].id,
+      targetAudience: ["Parents", "School-wide"]
+    });
+    
+    // Create students
+    const students = [
+      await this.createStudent({
+        firstName: "Emma",
+        lastName: "Davis",
+        grade: "3",
+        parentId: parentUsers[0].id,
+        profileImageUrl: "https://images.unsplash.com/photo-1595778975603-47d677b0c055?ixlib=rb-1.2.1&auto=format&fit=crop&w=100&q=80",
+        emergencyContact: "Jennifer Davis (555-123-4567)",
+        medicalNotes: "Mild peanut allergy",
+        currentTier: "good-standing",
+        tierUpdateDate: today
+      }),
+      await this.createStudent({
+        firstName: "Noah",
+        lastName: "Wilson",
+        grade: "4",
+        parentId: parentUsers[1].id,
+        profileImageUrl: "https://images.unsplash.com/photo-1599766239563-698b0fad2a56?ixlib=rb-1.2.1&auto=format&fit=crop&w=100&q=80",
+        emergencyContact: "David Wilson (555-987-6543)",
+        medicalNotes: null,
+        currentTier: "tier-1",
+        tierUpdateDate: (new Date(new Date(today).getTime() - 5 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0]
+      }),
+      await this.createStudent({
+        firstName: "Sophia",
+        lastName: "Lopez",
+        grade: "2",
+        parentId: parentUsers[2].id,
+        profileImageUrl: "https://images.unsplash.com/photo-1595980592365-527b982b6cff?ixlib=rb-1.2.1&auto=format&fit=crop&w=100&q=80",
+        emergencyContact: "Maria Lopez (555-555-1234)",
+        medicalNotes: "Asthma - has inhaler in backpack",
+        currentTier: "good-standing",
+        tierUpdateDate: today
+      }),
+      await this.createStudent({
+        firstName: "Miguel",
+        lastName: "Lopez",
+        grade: "5",
+        parentId: parentUsers[2].id,
+        profileImageUrl: "https://images.unsplash.com/photo-1537645903825-5d4cb8013f1e?ixlib=rb-1.2.1&auto=format&fit=crop&w=100&q=80",
+        emergencyContact: "Maria Lopez (555-555-1234)",
+        medicalNotes: null,
+        currentTier: "tier-2",
+        tierUpdateDate: (new Date(new Date(today).getTime() - 3 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0]
+      })
+    ];
+    
+    // Create behavior incidents
+    const incidents = [
+      await this.createBehaviorIncident({
+        studentId: students[1].id, // Noah
+        reportedByStaffId: staffMembers[4].id, // Daniel
+        incidentDate: (new Date(new Date(today).getTime() - 5 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0],
+        incidentTime: "15:30",
+        incidentType: "disruption",
+        description: "Noah was repeatedly distracting other students during homework time by making loud noises.",
+        location: "Classroom B",
+        witnessNames: ["Lisa Garcia", "Sarah Johnson"],
+        actionTaken: "Verbal warning and moved to separate table",
+        parentNotified: true,
+        parentNotificationDate: (new Date(new Date(today).getTime() - 5 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0],
+        followUpRequired: false,
+        isResolved: true
+      }),
+      await this.createBehaviorIncident({
+        studentId: students[3].id, // Miguel
+        reportedByStaffId: staffMembers[2].id, // James
+        incidentDate: (new Date(new Date(today).getTime() - 3 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0],
+        incidentTime: "16:20",
+        incidentType: "physical",
+        description: "Miguel pushed another student during science activity when they disagreed about experiment steps.",
+        location: "Science Lab",
+        witnessNames: ["Robert Thompson"],
+        actionTaken: "Separated students, timeout, discussion about appropriate conflict resolution",
+        parentNotified: true,
+        parentNotificationDate: (new Date(new Date(today).getTime() - 3 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0],
+        followUpRequired: true,
+        isResolved: true
+      }),
+      await this.createBehaviorIncident({
+        studentId: students[1].id, // Noah
+        reportedByStaffId: staffMembers[0].id, // Michael
+        incidentDate: today,
+        incidentTime: "17:15",
+        incidentType: "disrespect",
+        description: "Noah used inappropriate language when asked to clean up after games time.",
+        location: "Main Hall",
+        witnessNames: ["Lisa Garcia"],
+        actionTaken: null,
+        parentNotified: false,
+        parentNotificationDate: null,
+        followUpRequired: true,
+        isResolved: false
+      })
+    ];
+    
+    // Create behavior notes
+    await this.createBehaviorNote({
+      studentId: students[0].id, // Emma
+      staffId: staffMembers[1].id, // Sarah
+      date: (new Date(new Date(today).getTime() - 1 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0],
+      time: "15:45",
+      note: "Emma showed great leadership skills today by helping other students during arts and crafts.",
+      isPositive: true,
+      isPrivate: false,
+      parentRead: true
+    });
+    
+    await this.createBehaviorNote({
+      studentId: students[1].id, // Noah
+      staffId: staffMembers[4].id, // Daniel
+      date: (new Date(new Date(today).getTime() - 5 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0],
+      time: "15:45",
+      note: "Noah continues to struggle with following directions. Consider additional intervention strategies.",
+      isPositive: false,
+      isPrivate: true,
+      parentRead: false
+    });
+    
+    await this.createBehaviorNote({
+      studentId: students[2].id, // Sophia
+      staffId: staffMembers[3].id, // Lisa
+      date: today,
+      time: "14:00",
+      note: "Sophia is showing great improvement in music class. She volunteered to demonstrate for the group today.",
+      isPositive: true,
+      isPrivate: false,
+      parentRead: false
+    });
+    
+    await this.createBehaviorNote({
+      studentId: students[3].id, // Miguel
+      staffId: staffMembers[2].id, // James
+      date: (new Date(new Date(today).getTime() - 3 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0],
+      time: "16:40",
+      note: "Follow-up discussion with Miguel about the incident. He showed remorse and apologized to the other student.",
+      isPositive: false,
+      isPrivate: false,
+      parentRead: true
+    });
+    
+    // Create tier transitions
+    await this.createTierTransition({
+      studentId: students[1].id, // Noah
+      fromTier: "good-standing",
+      toTier: "tier-1",
+      date: (new Date(new Date(today).getTime() - 5 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0],
+      reason: "Repeated classroom disruptions",
+      authorizedById: staffMembers[4].id, // Daniel
+      parentNotified: true,
+      parentNotificationDate: (new Date(new Date(today).getTime() - 5 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0],
+      incidentIds: [incidents[0].id]
+    });
+    
+    await this.createTierTransition({
+      studentId: students[3].id, // Miguel
+      fromTier: "tier-1",
+      toTier: "tier-2",
+      date: (new Date(new Date(today).getTime() - 3 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0],
+      reason: "Physical altercation with another student",
+      authorizedById: staffMembers[2].id, // James
+      parentNotified: true,
+      parentNotificationDate: (new Date(new Date(today).getTime() - 3 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0],
+      incidentIds: [incidents[1].id]
     });
   }
 }
 
-// Create storage instance
 export const storage = new MemStorage();
