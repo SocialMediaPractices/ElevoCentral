@@ -11,7 +11,8 @@ import {
   insertStudentSchema,
   insertBehaviorIncidentSchema,
   insertBehaviorNoteSchema,
-  insertTierTransitionSchema
+  insertTierTransitionSchema,
+  insertHomeworkAssignmentSchema
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
