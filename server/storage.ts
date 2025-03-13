@@ -83,6 +83,7 @@ export interface IStorage {
   getHomeworkByActivity(activityId: number): Promise<HomeworkAssignment[]>;
   getHomeworkByStaff(staffId: number): Promise<HomeworkAssignment[]>;
   getPendingHomework(): Promise<HomeworkAssignment[]>;
+  getAllHomeworkAssignments(): Promise<HomeworkAssignment[]>;
   updateHomeworkStatus(id: number, status: string, completedDate?: string, completionNotes?: string): Promise<HomeworkAssignment>;
   verifyHomeworkCompletion(id: number, staffId: number): Promise<HomeworkAssignment>;
   notifyParentAboutHomework(id: number): Promise<HomeworkAssignment>;
@@ -496,7 +497,18 @@ export class MemStorage implements IStorage {
 
   async createHomeworkAssignment(insertAssignment: InsertHomeworkAssignment): Promise<HomeworkAssignment> {
     const id = this.homeworkIdCounter++;
-    const assignment: HomeworkAssignment = { ...insertAssignment, id };
+    // Ensure required fields have default values if not provided
+    const assignment: HomeworkAssignment = { 
+      ...insertAssignment, 
+      id,
+      status: insertAssignment.status || 'assigned',
+      parentNotified: insertAssignment.parentNotified || false,
+      completedDate: insertAssignment.completedDate || null,
+      completionNotes: insertAssignment.completionNotes || null,
+      verifiedByStaffId: insertAssignment.verifiedByStaffId || null,
+      verificationDate: insertAssignment.verificationDate || null,
+      parentNotificationDate: insertAssignment.parentNotificationDate || null
+    };
     this.homeworkAssignments.set(id, assignment);
     return assignment;
   }
@@ -541,8 +553,20 @@ export class MemStorage implements IStorage {
       .filter(homework => 
         // Include homework that is pending or overdue
         (homework.status === 'pending' && homework.dueDate >= today) ||
-        (homework.status === 'pending' && homework.dueDate < today)
+        (homework.status === 'pending' && homework.dueDate < today) ||
+        // Include assignments that are in 'assigned' status
+        homework.status === 'assigned'
       )
+      .sort((a, b) => {
+        // Sort by due date, closest first
+        const dateA = new Date(a.dueDate);
+        const dateB = new Date(b.dueDate);
+        return dateA.getTime() - dateB.getTime();
+      });
+  }
+  
+  async getAllHomeworkAssignments(): Promise<HomeworkAssignment[]> {
+    return Array.from(this.homeworkAssignments.values())
       .sort((a, b) => {
         // Sort by due date, closest first
         const dateA = new Date(a.dueDate);

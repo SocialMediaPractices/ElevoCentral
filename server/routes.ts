@@ -648,8 +648,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } else if (status === "pending") {
       assignments = await storage.getPendingHomework();
     } else {
-      // Return limited pending homework by default
-      assignments = await storage.getPendingHomework();
+      // Return all homework assignments by default
+      assignments = await storage.getAllHomeworkAssignments();
     }
     
     // Get student and staff info for each assignment
