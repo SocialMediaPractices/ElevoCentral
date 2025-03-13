@@ -512,7 +512,7 @@ function StudentDetails({ student }: { student: StudentWithDetails }) {
   );
 }
 
-// ChevronRight is now imported from lucide-react
+// Using ChevronRight from lucide-react instead of custom component
 
 export default function Students() {
   const [selectedTier, setSelectedTier] = useState<string | null>(null);
@@ -571,12 +571,12 @@ export default function Students() {
       
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <Select value={selectedTier || ""} onValueChange={(value) => setSelectedTier(value || null)}>
+          <Select value={selectedTier || "all"} onValueChange={(value) => setSelectedTier(value === "all" ? null : value)}>
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="All Tiers" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Tiers</SelectItem>
+              <SelectItem value="all">All Tiers</SelectItem>
               <SelectItem value="good-standing">Good Standing</SelectItem>
               <SelectItem value="tier-1">Tier 1</SelectItem>
               <SelectItem value="tier-2">Tier 2</SelectItem>

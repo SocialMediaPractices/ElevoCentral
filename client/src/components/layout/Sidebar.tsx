@@ -67,23 +67,20 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                 onClick={() => {
                   if (window.innerWidth < 1024) onClose();
                 }}
+                className={cn(
+                  "flex items-center px-4 py-3 rounded-custom font-nunito font-semibold transition-colors",
+                  location === link.href 
+                    ? "text-primary bg-blue-50" 
+                    : "text-textColor hover:bg-background"
+                )}
               >
-                <a 
-                  className={cn(
-                    "flex items-center px-4 py-3 rounded-custom font-nunito font-semibold transition-colors",
-                    location === link.href 
-                      ? "text-primary bg-blue-50" 
-                      : "text-textColor hover:bg-background"
-                  )}
-                >
-                  {link.icon}
-                  {link.label}
-                  {link.badge && (
-                    <span className="ml-auto bg-accent text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                      {link.badge}
-                    </span>
-                  )}
-                </a>
+                {link.icon}
+                {link.label}
+                {link.badge && (
+                  <span className="ml-auto bg-accent text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                    {link.badge}
+                  </span>
+                )}
               </Link>
             </li>
           ))}
@@ -98,11 +95,10 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                   onClick={() => {
                     if (window.innerWidth < 1024) onClose();
                   }}
+                  className="flex items-center px-4 py-2 text-darkGray hover:bg-background rounded-custom font-nunito transition-colors"
                 >
-                  <a className="flex items-center px-4 py-2 text-darkGray hover:bg-background rounded-custom font-nunito transition-colors">
-                    {link.icon}
-                    {link.label}
-                  </a>
+                  {link.icon}
+                  {link.label}
                 </Link>
               </li>
             ))}
