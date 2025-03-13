@@ -128,21 +128,15 @@ function AssignHomeworkDialog() {
     try {
       const today = new Date().toISOString().split('T')[0];
       
-      await apiRequest('/api/homework', {
-        method: 'POST',
-        body: JSON.stringify({
-          title,
-          description,
-          studentId: parseInt(studentId),
-          activityId: parseInt(activityId),
-          assignedByStaffId: currentStaffId,
-          dueDate,
-          assignedDate: today,
-          status: 'assigned'
-        }),
-        headers: {
-          'Content-Type': 'application/json'
-        }
+      await apiRequest('/api/homework', 'POST', {
+        title,
+        description,
+        studentId: parseInt(studentId),
+        activityId: parseInt(activityId),
+        assignedByStaffId: currentStaffId,
+        dueDate,
+        assignedDate: today,
+        status: 'assigned'
       });
       
       toast({
@@ -224,11 +218,11 @@ function AssignHomeworkDialog() {
                   {studentsLoading ? (
                     <SelectItem value="loading" disabled>Loading students...</SelectItem>
                   ) : (
-                    students?.map((student: any) => (
+                    Array.isArray(students) ? students.map((student: any) => (
                       <SelectItem key={student.id} value={student.id.toString()}>
                         {student.firstName} {student.lastName} ({student.grade})
                       </SelectItem>
-                    ))
+                    )) : <SelectItem value="none" disabled>No students found</SelectItem>
                   )}
                 </SelectContent>
               </Select>
@@ -249,11 +243,11 @@ function AssignHomeworkDialog() {
                   {activitiesLoading ? (
                     <SelectItem value="loading" disabled>Loading activities...</SelectItem>
                   ) : (
-                    activities?.map((activity: any) => (
+                    Array.isArray(activities) ? activities.map((activity: any) => (
                       <SelectItem key={activity.id} value={activity.id.toString()}>
                         {activity.name}
                       </SelectItem>
-                    ))
+                    )) : <SelectItem value="none" disabled>No activities found</SelectItem>
                   )}
                 </SelectContent>
               </Select>
@@ -308,36 +302,18 @@ function UpdateHomeworkDialog({
       const today = new Date().toISOString().split('T')[0];
       
       if (status === 'completed') {
-        await apiRequest(`/api/homework/${assignment.id}/update-status`, {
-          method: 'PATCH',
-          body: JSON.stringify({
-            status,
-            completedDate: today,
-            completionNotes
-          }),
-          headers: {
-            'Content-Type': 'application/json'
-          }
+        await apiRequest(`/api/homework/${assignment.id}/update-status`, 'PATCH', {
+          status,
+          completedDate: today,
+          completionNotes
         });
       } else if (status === 'verified' && currentStaffId) {
-        await apiRequest(`/api/homework/${assignment.id}/verify`, {
-          method: 'PATCH',
-          body: JSON.stringify({
-            staffId: currentStaffId
-          }),
-          headers: {
-            'Content-Type': 'application/json'
-          }
+        await apiRequest(`/api/homework/${assignment.id}/verify`, 'PATCH', {
+          staffId: currentStaffId
         });
       } else {
-        await apiRequest(`/api/homework/${assignment.id}/update-status`, {
-          method: 'PATCH',
-          body: JSON.stringify({
-            status
-          }),
-          headers: {
-            'Content-Type': 'application/json'
-          }
+        await apiRequest(`/api/homework/${assignment.id}/update-status`, 'PATCH', {
+          status
         });
       }
       
@@ -429,12 +405,7 @@ function NotifyParentDialog({
 
   const handleNotify = async () => {
     try {
-      await apiRequest(`/api/homework/${assignment.id}/notify-parent`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
+      await apiRequest(`/api/homework/${assignment.id}/notify-parent`, 'PATCH');
       
       toast({
         title: "Parent Notified",
