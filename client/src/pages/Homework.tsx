@@ -539,7 +539,7 @@ function HomeworkDetailsDialog({ assignment }: { assignment: HomeworkAssignment 
             {assignment.verifiedBy && (
               <div>
                 <p className="font-medium text-sm">Verified By</p>
-                <p>{assignment.verifiedBy.name}</p>
+                <p>{assignment.verifiedBy ? `${assignment.verifiedBy.firstName} ${assignment.verifiedBy.lastName}` : ''}</p>
               </div>
             )}
           </div>
