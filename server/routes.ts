@@ -634,6 +634,206 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
+  // Homework assignments routes
+  app.get("/api/homework", async (req, res) => {
+    const { studentId, activityId, staffId, status } = req.query;
+    
+    let assignments;
+    if (studentId) {
+      assignments = await storage.getHomeworkByStudent(parseInt(studentId as string));
+    } else if (activityId) {
+      assignments = await storage.getHomeworkByActivity(parseInt(activityId as string));
+    } else if (staffId) {
+      assignments = await storage.getHomeworkByStaff(parseInt(staffId as string));
+    } else if (status === "pending") {
+      assignments = await storage.getPendingHomework();
+    } else {
+      // Return limited pending homework by default
+      assignments = await storage.getPendingHomework();
+    }
+    
+    // Get student and staff info for each assignment
+    const assignmentsWithDetails = await Promise.all(
+      assignments.map(async (assignment) => {
+        const student = assignment.studentId ? await storage.getStudent(assignment.studentId) : undefined;
+        const activity = assignment.activityId ? await storage.getActivity(assignment.activityId) : undefined;
+        const staff = assignment.assignedByStaffId ? await storage.getStaff(assignment.assignedByStaffId) : undefined;
+        const verifier = assignment.verifiedByStaffId ? await storage.getStaff(assignment.verifiedByStaffId) : undefined;
+        
+        let staffInfo = undefined;
+        if (staff && staff.userId) {
+          const staffUser = await storage.getUser(staff.userId);
+          if (staffUser) {
+            staffInfo = {
+              id: staff.id,
+              name: staffUser.fullName,
+              title: staff.title,
+              profileImageUrl: staffUser.profileImageUrl
+            };
+          }
+        }
+        
+        let verifierInfo = undefined;
+        if (verifier && verifier.userId) {
+          const verifierUser = await storage.getUser(verifier.userId);
+          if (verifierUser) {
+            verifierInfo = {
+              id: verifier.id,
+              name: verifierUser.fullName,
+              title: verifier.title,
+              profileImageUrl: verifierUser.profileImageUrl
+            };
+          }
+        }
+        
+        return {
+          ...assignment,
+          student: student ? {
+            id: student.id,
+            name: `${student.firstName} ${student.lastName}`,
+            grade: student.grade,
+            profileImageUrl: student.profileImageUrl
+          } : undefined,
+          activity: activity ? {
+            id: activity.id,
+            name: activity.name,
+            type: activity.activityType
+          } : undefined,
+          assignedBy: staffInfo,
+          verifiedBy: verifierInfo
+        };
+      })
+    );
+    
+    res.json(assignmentsWithDetails);
+  });
+  
+  app.get("/api/homework/:id", async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid homework assignment ID" });
+    }
+    
+    const assignment = await storage.getHomeworkAssignment(id);
+    if (!assignment) {
+      return res.status(404).json({ message: "Homework assignment not found" });
+    }
+    
+    const student = assignment.studentId ? await storage.getStudent(assignment.studentId) : undefined;
+    const activity = assignment.activityId ? await storage.getActivity(assignment.activityId) : undefined;
+    const staff = assignment.assignedByStaffId ? await storage.getStaff(assignment.assignedByStaffId) : undefined;
+    const verifier = assignment.verifiedByStaffId ? await storage.getStaff(assignment.verifiedByStaffId) : undefined;
+    
+    let staffInfo = undefined;
+    if (staff && staff.userId) {
+      const staffUser = await storage.getUser(staff.userId);
+      if (staffUser) {
+        staffInfo = {
+          id: staff.id,
+          name: staffUser.fullName,
+          title: staff.title,
+          profileImageUrl: staffUser.profileImageUrl
+        };
+      }
+    }
+    
+    let verifierInfo = undefined;
+    if (verifier && verifier.userId) {
+      const verifierUser = await storage.getUser(verifier.userId);
+      if (verifierUser) {
+        verifierInfo = {
+          id: verifier.id,
+          name: verifierUser.fullName,
+          title: verifier.title,
+          profileImageUrl: verifierUser.profileImageUrl
+        };
+      }
+    }
+    
+    res.json({
+      ...assignment,
+      student: student ? {
+        id: student.id,
+        name: `${student.firstName} ${student.lastName}`,
+        grade: student.grade,
+        profileImageUrl: student.profileImageUrl
+      } : undefined,
+      activity: activity ? {
+        id: activity.id,
+        name: activity.name,
+        type: activity.activityType
+      } : undefined,
+      assignedBy: staffInfo,
+      verifiedBy: verifierInfo
+    });
+  });
+  
+  app.post("/api/homework", async (req, res) => {
+    try {
+      const homeworkData = insertHomeworkAssignmentSchema.parse(req.body);
+      const assignment = await storage.createHomeworkAssignment(homeworkData);
+      res.status(201).json(assignment);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Invalid homework assignment data", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to create homework assignment" });
+      }
+    }
+  });
+  
+  app.patch("/api/homework/:id/update-status", async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid homework assignment ID" });
+    }
+    
+    const { status, completedDate, completionNotes } = req.body;
+    if (!status) {
+      return res.status(400).json({ message: "Status is required" });
+    }
+    
+    try {
+      const updatedAssignment = await storage.updateHomeworkStatus(id, status, completedDate, completionNotes);
+      res.json(updatedAssignment);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update homework status" });
+    }
+  });
+  
+  app.patch("/api/homework/:id/verify", async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid homework assignment ID" });
+    }
+    
+    const { staffId } = req.body;
+    if (!staffId) {
+      return res.status(400).json({ message: "Staff ID is required" });
+    }
+    
+    try {
+      const updatedAssignment = await storage.verifyHomeworkCompletion(id, parseInt(staffId));
+      res.json(updatedAssignment);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to verify homework completion" });
+    }
+  });
+  
+  app.patch("/api/homework/:id/notify-parent", async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid homework assignment ID" });
+    }
+    
+    try {
+      const updatedAssignment = await storage.notifyParentAboutHomework(id);
+      res.json(updatedAssignment);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update parent notification status" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

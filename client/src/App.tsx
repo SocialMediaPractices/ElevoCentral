@@ -13,6 +13,7 @@ import Messages from "@/pages/Messages";
 import Parents from "@/pages/Parents";
 import Settings from "@/pages/Settings";
 import Help from "@/pages/Help";
+import Homework from "@/pages/Homework";
 import Layout from "@/components/layout/Layout";
 
 function Router() {
@@ -28,6 +29,7 @@ function Router() {
       <Route path="/parents" component={Parents} />
       <Route path="/settings" component={Settings} />
       <Route path="/help" component={Help} />
+      <Route path="/homework" component={Homework} />
       {/* Fallback to 404 */}
       <Route component={NotFound} />
     </Switch>
