@@ -7,7 +7,8 @@ import {
   staff, type Staff, type InsertStaff,
   activities, type Activity, type InsertActivity,
   staffActivities, type StaffActivity, type InsertStaffActivity,
-  announcements, type Announcement, type InsertAnnouncement
+  announcements, type Announcement, type InsertAnnouncement,
+  homeworkAssignments, type HomeworkAssignment, type InsertHomeworkAssignment
 } from "@shared/schema";
 
 // Storage interface
@@ -74,6 +75,17 @@ export interface IStorage {
   createTierTransition(transition: InsertTierTransition): Promise<TierTransition>;
   getTransitionsByStudent(studentId: number): Promise<TierTransition[]>;
   getRecentTransitions(limit: number): Promise<TierTransition[]>;
+  
+  // Homework methods
+  getHomeworkAssignment(id: number): Promise<HomeworkAssignment | undefined>;
+  createHomeworkAssignment(assignment: InsertHomeworkAssignment): Promise<HomeworkAssignment>;
+  getHomeworkByStudent(studentId: number): Promise<HomeworkAssignment[]>;
+  getHomeworkByActivity(activityId: number): Promise<HomeworkAssignment[]>;
+  getHomeworkByStaff(staffId: number): Promise<HomeworkAssignment[]>;
+  getPendingHomework(): Promise<HomeworkAssignment[]>;
+  updateHomeworkStatus(id: number, status: string, completedDate?: string, completionNotes?: string): Promise<HomeworkAssignment>;
+  verifyHomeworkCompletion(id: number, staffId: number): Promise<HomeworkAssignment>;
+  notifyParentAboutHomework(id: number): Promise<HomeworkAssignment>;
 }
 
 export class MemStorage implements IStorage {
@@ -471,6 +483,126 @@ export class MemStorage implements IStorage {
         return dateB.getTime() - dateA.getTime();
       })
       .slice(0, limit);
+  }
+
+  // Homework assignments storage
+  private homeworkAssignments: Map<number, HomeworkAssignment> = new Map();
+  private homeworkIdCounter: number = 1;
+
+  // Homework methods implementation
+  async getHomeworkAssignment(id: number): Promise<HomeworkAssignment | undefined> {
+    return this.homeworkAssignments.get(id);
+  }
+
+  async createHomeworkAssignment(insertAssignment: InsertHomeworkAssignment): Promise<HomeworkAssignment> {
+    const id = this.homeworkIdCounter++;
+    const assignment: HomeworkAssignment = { ...insertAssignment, id };
+    this.homeworkAssignments.set(id, assignment);
+    return assignment;
+  }
+
+  async getHomeworkByStudent(studentId: number): Promise<HomeworkAssignment[]> {
+    return Array.from(this.homeworkAssignments.values())
+      .filter(homework => homework.studentId === studentId)
+      .sort((a, b) => {
+        // Sort by due date, closest first
+        const dateA = new Date(a.dueDate);
+        const dateB = new Date(b.dueDate);
+        return dateA.getTime() - dateB.getTime();
+      });
+  }
+
+  async getHomeworkByActivity(activityId: number): Promise<HomeworkAssignment[]> {
+    return Array.from(this.homeworkAssignments.values())
+      .filter(homework => homework.activityId === activityId)
+      .sort((a, b) => {
+        // Sort by due date, closest first
+        const dateA = new Date(a.dueDate);
+        const dateB = new Date(b.dueDate);
+        return dateA.getTime() - dateB.getTime();
+      });
+  }
+
+  async getHomeworkByStaff(staffId: number): Promise<HomeworkAssignment[]> {
+    return Array.from(this.homeworkAssignments.values())
+      .filter(homework => homework.assignedByStaffId === staffId)
+      .sort((a, b) => {
+        // Sort by due date, closest first
+        const dateA = new Date(a.dueDate);
+        const dateB = new Date(b.dueDate);
+        return dateA.getTime() - dateB.getTime();
+      });
+  }
+
+  async getPendingHomework(): Promise<HomeworkAssignment[]> {
+    const today = new Date().toISOString().split('T')[0]; // Get today's date in YYYY-MM-DD format
+    
+    return Array.from(this.homeworkAssignments.values())
+      .filter(homework => 
+        // Include homework that is pending or overdue
+        (homework.status === 'pending' && homework.dueDate >= today) ||
+        (homework.status === 'pending' && homework.dueDate < today)
+      )
+      .sort((a, b) => {
+        // Sort by due date, closest first
+        const dateA = new Date(a.dueDate);
+        const dateB = new Date(b.dueDate);
+        return dateA.getTime() - dateB.getTime();
+      });
+  }
+
+  async updateHomeworkStatus(
+    id: number, 
+    status: string, 
+    completedDate?: string, 
+    completionNotes?: string
+  ): Promise<HomeworkAssignment> {
+    const homework = await this.getHomeworkAssignment(id);
+    if (!homework) {
+      throw new Error(`Homework assignment with ID ${id} not found`);
+    }
+    
+    const updatedHomework: HomeworkAssignment = {
+      ...homework,
+      status: status as any, // Type cast to satisfy TypeScript
+      ...(completedDate && { completedDate }),
+      ...(completionNotes && { completionNotes })
+    };
+    
+    this.homeworkAssignments.set(id, updatedHomework);
+    return updatedHomework;
+  }
+
+  async verifyHomeworkCompletion(id: number, staffId: number): Promise<HomeworkAssignment> {
+    const homework = await this.getHomeworkAssignment(id);
+    if (!homework) {
+      throw new Error(`Homework assignment with ID ${id} not found`);
+    }
+    
+    const updatedHomework: HomeworkAssignment = {
+      ...homework,
+      status: 'completed' as any, // Type cast to satisfy TypeScript
+      verifiedByStaffId: staffId,
+      verificationDate: new Date().toISOString().split('T')[0] // Today's date in YYYY-MM-DD format
+    };
+    
+    this.homeworkAssignments.set(id, updatedHomework);
+    return updatedHomework;
+  }
+
+  async notifyParentAboutHomework(id: number): Promise<HomeworkAssignment> {
+    const homework = await this.getHomeworkAssignment(id);
+    if (!homework) {
+      throw new Error(`Homework assignment with ID ${id} not found`);
+    }
+    
+    const updatedHomework: HomeworkAssignment = {
+      ...homework,
+      parentNotified: true
+    };
+    
+    this.homeworkAssignments.set(id, updatedHomework);
+    return updatedHomework;
   }
 
   // Initialize sample data for development

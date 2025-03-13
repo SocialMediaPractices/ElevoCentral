@@ -257,3 +257,42 @@ export type BehaviorNote = typeof behaviorNotes.$inferSelect;
 export type InsertTierTransition = z.infer<typeof insertTierTransitionSchema>;
 export type TierTransition = typeof tierTransitions.$inferSelect;
 
+// Homework schema
+export const homeworkAssignments = pgTable("homework_assignments", {
+  id: serial("id").primaryKey(),
+  studentId: integer("student_id").notNull().references(() => students.id),
+  activityId: integer("activity_id").notNull().references(() => activities.id),
+  assignedByStaffId: integer("assigned_by_staff_id").notNull().references(() => staff.id),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  dueDate: text("due_date").notNull(), // YYYY-MM-DD format
+  assignedDate: text("assigned_date").notNull(), // YYYY-MM-DD format
+  status: text("status").notNull().default("pending"), // pending, completed, overdue
+  priority: text("priority").notNull().default("normal"), // low, normal, high
+  completedDate: text("completed_date"),
+  completionNotes: text("completion_notes"),
+  verifiedByStaffId: integer("verified_by_staff_id").references(() => staff.id),
+  verificationDate: text("verification_date"),
+  parentNotified: boolean("parent_notified").default(false),
+});
+
+export const insertHomeworkAssignmentSchema = createInsertSchema(homeworkAssignments).pick({
+  studentId: true,
+  activityId: true,
+  assignedByStaffId: true,
+  title: true,
+  description: true,
+  dueDate: true,
+  assignedDate: true,
+  status: true,
+  priority: true,
+  completedDate: true,
+  completionNotes: true,
+  verifiedByStaffId: true,
+  verificationDate: true,
+  parentNotified: true,
+});
+
+export type InsertHomeworkAssignment = z.infer<typeof insertHomeworkAssignmentSchema>;
+export type HomeworkAssignment = typeof homeworkAssignments.$inferSelect;
+
