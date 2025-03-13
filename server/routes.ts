@@ -647,6 +647,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       assignments = await storage.getHomeworkByStaff(parseInt(staffId as string));
     } else if (status === "pending") {
       assignments = await storage.getPendingHomework();
+    } else if (status) {
+      // Filter by status if provided
+      const allAssignments = await storage.getAllHomeworkAssignments();
+      assignments = allAssignments.filter(assignment => assignment.status === status);
     } else {
       // Return all homework assignments by default
       assignments = await storage.getAllHomeworkAssignments();
