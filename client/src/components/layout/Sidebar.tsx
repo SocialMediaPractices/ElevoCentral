@@ -10,7 +10,8 @@ import {
   UserPlus,
   Settings,
   HelpCircle,
-  GraduationCap
+  GraduationCap,
+  BookOpen
 } from "lucide-react";
 
 interface SidebarProps {
@@ -26,6 +27,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     { href: "/programs", icon: <Calendar className="mr-3 w-5 text-center" />, label: "Programs" },
     { href: "/staff", icon: <Users className="mr-3 w-5 text-center" />, label: "Staff" },
     { href: "/students", icon: <GraduationCap className="mr-3 w-5 text-center" />, label: "Students" },
+    { href: "/homework", icon: <BookOpen className="mr-3 w-5 text-center" />, label: "Homework" },
     { href: "/events", icon: <Star className="mr-3 w-5 text-center" />, label: "Events" },
     { href: "/clubs", icon: <Shapes className="mr-3 w-5 text-center" />, label: "Clubs" },
     { 
