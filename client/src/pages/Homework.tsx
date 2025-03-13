@@ -40,7 +40,8 @@ type HomeworkAssignment = {
   assignedByStaffId: number;
   student?: {
     id: number;
-    name: string;
+    firstName: string;
+    lastName: string;
     grade: string;
     profileImageUrl: string | null;
   };
@@ -344,7 +345,7 @@ function UpdateHomeworkDialog({
         <DialogHeader>
           <DialogTitle>Update Homework Status</DialogTitle>
           <DialogDescription>
-            Change the status of "{assignment.title}" for {assignment.student?.name}.
+            Change the status of "{assignment.title}" for {assignment.student ? `${assignment.student.firstName} ${assignment.student.lastName}` : ''}.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
@@ -440,7 +441,7 @@ function NotifyParentDialog({
         <DialogHeader>
           <DialogTitle>Notify Parent</DialogTitle>
           <DialogDescription>
-            Send a notification to the parent of {assignment.student?.name} about their homework assignment "{assignment.title}".
+            Send a notification to the parent of {assignment.student ? `${assignment.student.firstName} ${assignment.student.lastName}` : ''} about their homework assignment "{assignment.title}".
           </DialogDescription>
         </DialogHeader>
         <div className="py-4">
@@ -478,7 +479,7 @@ function HomeworkDetailsDialog({ assignment }: { assignment: HomeworkAssignment 
             </div>
             <div>
               <p className="font-medium text-sm">Student</p>
-              <p>{assignment.student?.name}</p>
+              <p>{assignment.student ? `${assignment.student.firstName} ${assignment.student.lastName}` : ''}</p>
             </div>
             <div>
               <p className="font-medium text-sm">Grade</p>
