@@ -52,13 +52,15 @@ type HomeworkAssignment = {
   };
   assignedBy?: {
     id: number;
-    name: string;
+    firstName: string;
+    lastName: string;
     title: string;
     profileImageUrl: string | null;
   };
   verifiedBy?: {
     id: number;
-    name: string;
+    firstName: string;
+    lastName: string;
     title: string;
     profileImageUrl: string | null;
   };
@@ -532,7 +534,7 @@ function HomeworkDetailsDialog({ assignment }: { assignment: HomeworkAssignment 
           <div className="grid grid-cols-2 gap-4">
             <div>
               <p className="font-medium text-sm">Assigned By</p>
-              <p>{assignment.assignedBy?.name}</p>
+              <p>{assignment.assignedBy ? `${assignment.assignedBy.firstName} ${assignment.assignedBy.lastName}` : ''}</p>
             </div>
             {assignment.verifiedBy && (
               <div>
@@ -644,7 +646,7 @@ export default function Homework() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        {assignment.student?.name}
+                        {assignment.student ? `${assignment.student.firstName} ${assignment.student.lastName}` : ''}
                         <div className="text-xs text-muted-foreground mt-1">
                           Grade: {assignment.student?.grade}
                         </div>
