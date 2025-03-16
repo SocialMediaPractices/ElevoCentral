@@ -17,6 +17,11 @@ export const userRoleEnum = pgEnum('user_role', [
   'admin', 'staff', 'parent'
 ]);
 
+// Staff role enum
+export const staffRoleEnum = pgEnum('staff_role', [
+  'site-manager', 'youth-development-lead', 'coach', 'other'
+]);
+
 // Behavior tier enum
 export const behaviorTierEnum = pgEnum('behavior_tier', [
   'good-standing', 'tier-1', 'tier-2', 'tier-3', 'suspended'
@@ -40,8 +45,11 @@ export const users = pgTable("users", {
 export const staff = pgTable("staff", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id),
+  staffRole: staffRoleEnum("staff_role").default("other").notNull(),
   title: text("title").notNull(), // e.g., "Coach", "Ms.", etc.
   specialties: text("specialties").array(),
+  responsibilities: text("responsibilities").array(),
+  hireDate: text("hire_date"), // Format: "YYYY-MM-DD"
   isActive: boolean("is_active").default(true),
 });
 
@@ -87,8 +95,11 @@ export const insertUserSchema = createInsertSchema(users).pick({
 
 export const insertStaffSchema = createInsertSchema(staff).pick({
   userId: true,
+  staffRole: true,
   title: true,
   specialties: true,
+  responsibilities: true,
+  hireDate: true,
   isActive: true,
 });
 
