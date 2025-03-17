@@ -19,16 +19,38 @@ export const userRoleEnum = pgEnum('user_role', [
 
 // Staff role enum
 export const staffRoleEnum = pgEnum('staff_role', [
-  'site-manager', 'youth-development-lead', 'coach', 'other'
+  'site-manager', 'youth-development-lead', 'second-in-command', 'coach', 'other'
 ]);
 
 // Permission types enum
 export const permissionTypeEnum = pgEnum('permission_type', [
-  'slack-access', 'supper-distribution', 'snack-inventory', 
-  'soccer-jersey-inventory', 'practice-jersey-inventory', 
-  'homework-management', 'supplies-inventory', 'attendance-tracking',
-  'behavior-management', 'parent-communication', 'early-release-approval',
-  'staff-management', 'activity-management'
+  // Communication permissions
+  'slack-access', 'parent-communication', 'staff-communications', 'school-communications',
+  
+  // Inventory and logistics
+  'supper-distribution', 'meal-distribution', 'meal-inventory',
+  'snack-inventory', 'equipment-inventory', 'supplies-inventory',
+  'soccer-jersey-inventory', 'practice-jersey-inventory',
+  
+  // Program management
+  'homework-management', 'attendance-tracking', 'behavior-management',
+  'student-records', 'early-release-approval', 'sign-in-management',
+  
+  // Staff management
+  'staff-scheduling', 'staff-attendance', 'staff-management',
+  'staff-evaluations', 
+  
+  // Activity management
+  'activity-management', 'program-scheduling',
+  
+  // Reporting
+  'daily-reports', 'incident-reports', 'parent-notifications',
+  
+  // Parent permissions
+  'view-child-info', 'view-child-attendance', 'view-child-behavior', 'view-child-homework',
+  'early-release-request', 'absence-notification', 'contact-staff',
+  'mark-homework-completed', 'view-homework-assignments',
+  'view-behavior-notes', 'mark-note-read', 'view-announcements'
 ]);
 
 // Behavior tier enum

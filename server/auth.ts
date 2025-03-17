@@ -100,18 +100,37 @@ export const hasPermission = (requiredPermission: string) => {
         
         // Role-based default permissions
         if (staffMember.staffRole === 'site-manager') {
-          // Site managers have access to everything
+          // Site managers have access to everything per their operational oversight role
+          // This includes staff supervision, program implementation, safety compliance,
+          // communications, inventory and logistics management
           return next();
         }
         
         if (staffMember.staffRole === 'youth-development-lead') {
-          // Youth development leads have access to specific permissions
+          // Youth Development Leads have access to specific permissions related to
+          // operational oversight, staff supervision, safety compliance, program coordination,
+          // communication, reporting, inventory management
           const youthDevLeadPermissions = [
+            // Inventory management
             'snack-inventory',
             'soccer-jersey-inventory',
             'practice-jersey-inventory',
+            'equipment-inventory',
+            'supplies-inventory',
+            
+            // Program management
             'homework-management',
-            'behavior-management'
+            'behavior-management',
+            'attendance-tracking',
+            'student-records',
+            
+            // Reporting
+            'daily-reports',
+            'incident-reports',
+            
+            // Communication
+            'parent-notifications',
+            'staff-communications'
           ];
           
           if (youthDevLeadPermissions.includes(requiredPermission)) {
@@ -120,13 +139,47 @@ export const hasPermission = (requiredPermission: string) => {
         }
         
         if (staffMember.staffRole === 'coach') {
-          // Coaches have access to homework management and supplies
+          // Coaches have access to homework management, attendance tracking,
+          // and basic inventory management
           const coachPermissions = [
             'homework-management',
-            'supplies-inventory'
+            'supplies-inventory',
+            'attendance-tracking',
+            'behavior-notes',
+            'student-feedback'
           ];
           
           if (coachPermissions.includes(requiredPermission)) {
+            return next();
+          }
+        }
+        
+        if (staffMember.staffRole === 'second-in-command') {
+          // Second in Command has similar permissions to Site Manager but with focus on
+          // specific operational areas like supper distribution
+          const secondInCommandPermissions = [
+            // All inventory management 
+            'snack-inventory',
+            'soccer-jersey-inventory',
+            'practice-jersey-inventory',
+            'equipment-inventory',
+            'supplies-inventory',
+            
+            // Supper/meal distribution tracking
+            'meal-distribution',
+            'meal-inventory',
+            
+            // Staff supervision
+            'staff-scheduling',
+            'staff-attendance',
+            
+            // Program management
+            'homework-management',
+            'behavior-management',
+            'attendance-tracking'
+          ];
+          
+          if (secondInCommandPermissions.includes(requiredPermission)) {
             return next();
           }
         }
@@ -139,8 +192,25 @@ export const hasPermission = (requiredPermission: string) => {
     // For parent users, only allow parent-specific permissions
     if (user.role === 'parent') {
       const parentPermissions = [
+        // View child data
         'view-child-info',
-        'early-release-request'
+        'view-child-attendance',
+        'view-child-behavior',
+        'view-child-homework',
+        
+        // Request functionality
+        'early-release-request',
+        'absence-notification',
+        'contact-staff',
+        
+        // Homework-related
+        'mark-homework-completed',
+        'view-homework-assignments',
+        
+        // Behavior and communication
+        'view-behavior-notes',
+        'mark-note-read',
+        'view-announcements'
       ];
       
       if (parentPermissions.includes(requiredPermission)) {
