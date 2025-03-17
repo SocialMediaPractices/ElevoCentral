@@ -396,7 +396,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Students routes
-  app.get("/api/students", async (req, res) => {
+  app.get("/api/students", hasRole(['staff', 'admin']), async (req, res) => {
     const { tier } = req.query;
     
     let students;
@@ -427,7 +427,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(studentsWithParentInfo);
   });
   
-  app.get("/api/students/:id", async (req, res) => {
+  app.get("/api/students/:id", hasPermission('student-records'), async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid student ID" });
@@ -472,7 +472,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Behavior Incidents routes
-  app.get("/api/behavior-incidents", async (req, res) => {
+  app.get("/api/behavior-incidents", hasPermission('behavior-management'), async (req, res) => {
     const { studentId, date, limit } = req.query;
     
     let incidents;
