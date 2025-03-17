@@ -271,7 +271,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
   
-  app.post("/api/activities", async (req, res) => {
+  app.post("/api/activities", hasRole(['staff', 'admin']), async (req, res) => {
     try {
       const activityData = insertActivitySchema.parse(req.body);
       const activity = await storage.createActivity(activityData);
@@ -286,7 +286,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Staff-Activity assignments
-  app.post("/api/staff-activities", async (req, res) => {
+  app.post("/api/staff-activities", hasRole(['admin', 'staff']), async (req, res) => {
     try {
       const assignmentData = insertStaffActivitySchema.parse(req.body);
       const assignment = await storage.assignStaffToActivity(assignmentData);
@@ -300,7 +300,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.get("/api/staff/:id/activities", async (req, res) => {
+  app.get("/api/staff/:id/activities", hasRole(['admin', 'staff']), async (req, res) => {
     const staffId = parseInt(req.params.id);
     if (isNaN(staffId)) {
       return res.status(400).json({ message: "Invalid staff ID" });
@@ -310,7 +310,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(activities);
   });
   
-  app.get("/api/activities/:id/staff", async (req, res) => {
+  app.get("/api/activities/:id/staff", hasRole(['admin', 'staff']), async (req, res) => {
     const activityId = parseInt(req.params.id);
     if (isNaN(activityId)) {
       return res.status(400).json({ message: "Invalid activity ID" });
@@ -753,7 +753,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Dashboard stats endpoint
-  app.get("/api/dashboard/stats", hasRole(['staff', 'admin']), async (req, res) => {
+  app.get("/api/dashboard/stats", async (req, res) => {
     const date = req.query.date as string || new Date().toISOString().split('T')[0];
     
     const activities = await storage.getActivitiesByDate(date);
