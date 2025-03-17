@@ -22,6 +22,15 @@ export const staffRoleEnum = pgEnum('staff_role', [
   'site-manager', 'youth-development-lead', 'coach', 'other'
 ]);
 
+// Permission types enum
+export const permissionTypeEnum = pgEnum('permission_type', [
+  'slack-access', 'supper-distribution', 'snack-inventory', 
+  'soccer-jersey-inventory', 'practice-jersey-inventory', 
+  'homework-management', 'supplies-inventory', 'attendance-tracking',
+  'behavior-management', 'parent-communication', 'early-release-approval',
+  'staff-management', 'activity-management'
+]);
+
 // Behavior tier enum
 export const behaviorTierEnum = pgEnum('behavior_tier', [
   'good-standing', 'tier-1', 'tier-2', 'tier-3', 'suspended'
@@ -51,6 +60,7 @@ export const staff = pgTable("staff", {
   responsibilities: text("responsibilities").array(),
   hireDate: text("hire_date"), // Format: "YYYY-MM-DD"
   isActive: boolean("is_active").default(true),
+  permissions: permissionTypeEnum("permissions").array(),
 });
 
 // Activities table
@@ -101,6 +111,7 @@ export const insertStaffSchema = createInsertSchema(staff).pick({
   responsibilities: true,
   hireDate: true,
   isActive: true,
+  permissions: true,
 });
 
 export const insertActivitySchema = createInsertSchema(activities).pick({
