@@ -190,7 +190,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Staff routes
-  app.get("/api/staff", async (req, res) => {
+  app.get("/api/staff", hasRole(['admin', 'staff']), async (req, res) => {
     const { active } = req.query;
     const staff = active === "true" 
       ? await storage.getActiveStaff() 
@@ -198,7 +198,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(staff);
   });
   
-  app.get("/api/staff/:id", async (req, res) => {
+  app.get("/api/staff/:id", hasRole(['admin', 'staff']), async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid staff ID" });
@@ -227,7 +227,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Activities routes
-  app.get("/api/activities", async (req, res) => {
+  app.get("/api/activities", hasPermission('view-activities'), async (req, res) => {
     const { date, period } = req.query;
     
     let activities;
@@ -252,7 +252,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(activitiesWithStaff);
   });
   
-  app.get("/api/activities/:id", async (req, res) => {
+  app.get("/api/activities/:id", hasPermission('view-activities'), async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid activity ID" });
@@ -321,7 +321,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Announcements routes
-  app.get("/api/announcements", async (req, res) => {
+  app.get("/api/announcements", hasPermission('view-announcements'), async (req, res) => {
     const { limit } = req.query;
     
     let announcements;
@@ -348,7 +348,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(announcementsWithAuthor);
   });
   
-  app.get("/api/announcements/:id", async (req, res) => {
+  app.get("/api/announcements/:id", hasPermission('view-announcements'), async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid announcement ID" });
@@ -753,7 +753,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Dashboard stats endpoint
-  app.get("/api/dashboard/stats", async (req, res) => {
+  app.get("/api/dashboard/stats", hasRole(['admin', 'staff']), async (req, res) => {
     const date = req.query.date as string || new Date().toISOString().split('T')[0];
     
     const activities = await storage.getActivitiesByDate(date);
