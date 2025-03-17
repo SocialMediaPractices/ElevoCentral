@@ -522,7 +522,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(incidentsWithDetails);
   });
   
-  app.get("/api/behavior-incidents/:id", async (req, res) => {
+  app.get("/api/behavior-incidents/:id", hasPermission('behavior-management'), async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid incident ID" });
@@ -575,7 +575,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.patch("/api/behavior-incidents/:id/resolve", async (req, res) => {
+  app.patch("/api/behavior-incidents/:id/resolve", hasPermission('behavior-management'), async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid incident ID" });
@@ -594,7 +594,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.patch("/api/behavior-incidents/:id/notify-parent", async (req, res) => {
+  app.patch("/api/behavior-incidents/:id/notify-parent", hasPermission('parent-notifications'), async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid incident ID" });
@@ -611,7 +611,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Behavior Notes routes
-  app.get("/api/behavior-notes", async (req, res) => {
+  app.get("/api/behavior-notes", hasRole(['staff', 'admin', 'parent']), async (req, res) => {
     const { studentId, limit, parentVisible } = req.query;
     
     let notes;
@@ -690,7 +690,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Tier Transitions routes
-  app.get("/api/tier-transitions", async (req, res) => {
+  app.get("/api/tier-transitions", hasPermission('behavior-management'), async (req, res) => {
     const { studentId, limit } = req.query;
     
     let transitions;
@@ -738,7 +738,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(transitionsWithDetails);
   });
   
-  app.post("/api/tier-transitions", hasRole('staff'), async (req, res) => {
+  app.post("/api/tier-transitions", hasPermission('behavior-management'), async (req, res) => {
     try {
       const transitionData = insertTierTransitionSchema.parse(req.body);
       const transition = await storage.createTierTransition(transitionData);
@@ -753,7 +753,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Dashboard stats endpoint
-  app.get("/api/dashboard/stats", async (req, res) => {
+  app.get("/api/dashboard/stats", hasRole(['staff', 'admin']), async (req, res) => {
     const date = req.query.date as string || new Date().toISOString().split('T')[0];
     
     const activities = await storage.getActivitiesByDate(date);
@@ -772,7 +772,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Homework assignments routes
-  app.get("/api/homework", async (req, res) => {
+  app.get("/api/homework", hasRole(['staff', 'admin', 'parent', 'student']), async (req, res) => {
     const { studentId, activityId, staffId, status } = req.query;
     
     let assignments;
@@ -849,7 +849,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(assignmentsWithDetails);
   });
   
-  app.get("/api/homework/:id", async (req, res) => {
+  app.get("/api/homework/:id", hasRole(['staff', 'admin', 'parent', 'student']), async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid homework assignment ID" });
@@ -961,7 +961,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.patch("/api/homework/:id/notify-parent", hasRole('staff'), async (req, res) => {
+  app.patch("/api/homework/:id/notify-parent", hasPermission('parent-notifications'), async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid homework assignment ID" });
