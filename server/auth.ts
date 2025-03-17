@@ -154,7 +154,7 @@ export const hasPermission = (requiredPermission: string) => {
 };
 
 // Role-based authorization middleware
-export const hasRole = (requiredRole: string) => {
+export const hasRole = (requiredRole: string | string[]) => {
   return (req: any, res: any, next: any) => {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ message: 'Not authenticated' });
@@ -162,8 +162,21 @@ export const hasRole = (requiredRole: string) => {
 
     const user: User = req.user;
     
-    if (user.role === requiredRole || user.role === 'admin') {
+    // Admin always has access
+    if (user.role === 'admin') {
       return next();
+    }
+    
+    // Check if the user has one of the required roles
+    if (Array.isArray(requiredRole)) {
+      if (requiredRole.includes(user.role)) {
+        return next();
+      }
+    } else {
+      // Check for a single required role
+      if (user.role === requiredRole) {
+        return next();
+      }
     }
     
     return res.status(403).json({ message: 'Access denied' });

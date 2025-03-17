@@ -661,7 +661,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(notesWithDetails);
   });
   
-  app.post("/api/behavior-notes", async (req, res) => {
+  app.post("/api/behavior-notes", hasRole(['staff', 'admin']), async (req, res) => {
     try {
       const noteData = insertBehaviorNoteSchema.parse(req.body);
       const note = await storage.createBehaviorNote(noteData);
@@ -675,7 +675,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.patch("/api/behavior-notes/:id/mark-read", async (req, res) => {
+  app.patch("/api/behavior-notes/:id/mark-read", hasRole('parent'), async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid note ID" });
@@ -738,7 +738,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(transitionsWithDetails);
   });
   
-  app.post("/api/tier-transitions", async (req, res) => {
+  app.post("/api/tier-transitions", hasRole('staff'), async (req, res) => {
     try {
       const transitionData = insertTierTransitionSchema.parse(req.body);
       const transition = await storage.createTierTransition(transitionData);
@@ -909,7 +909,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
   
-  app.post("/api/homework", async (req, res) => {
+  app.post("/api/homework", hasRole('staff'), async (req, res) => {
     try {
       const homeworkData = insertHomeworkAssignmentSchema.parse(req.body);
       const assignment = await storage.createHomeworkAssignment(homeworkData);
@@ -923,7 +923,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.patch("/api/homework/:id/update-status", async (req, res) => {
+  app.patch("/api/homework/:id/update-status", hasRole(['parent', 'student', 'staff']), async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid homework assignment ID" });
@@ -942,7 +942,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.patch("/api/homework/:id/verify", async (req, res) => {
+  app.patch("/api/homework/:id/verify", hasRole('staff'), async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid homework assignment ID" });
@@ -961,7 +961,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.patch("/api/homework/:id/notify-parent", async (req, res) => {
+  app.patch("/api/homework/:id/notify-parent", hasRole('staff'), async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid homework assignment ID" });
