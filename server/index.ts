@@ -1,10 +1,35 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import session from "express-session";
+import passport from "./auth";
+import { pool } from "./db";
+import ConnectPgSimple from "connect-pg-simple";
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+
+// Session configuration
+const PgSession = ConnectPgSimple(session);
+app.use(session({
+  store: new PgSession({
+    pool,
+    tableName: 'session', // Use the default table name
+    createTableIfMissing: true
+  }),
+  secret: process.env.SESSION_SECRET || 'elevo-secret-key', // Use environment variable in production
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    secure: process.env.NODE_ENV === 'production'
+  }
+}));
+
+// Initialize Passport and restore authentication state from session
+app.use(passport.initialize());
+app.use(passport.session());
 
 app.use((req, res, next) => {
   const start = Date.now();

@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { z } from "zod";
@@ -14,6 +14,8 @@ import {
   insertTierTransitionSchema,
   insertHomeworkAssignmentSchema
 } from "@shared/schema";
+import passport from "./auth";
+import { hashPassword, hasRole, hasPermission } from "./auth";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // API Routes - prefix all routes with /api
