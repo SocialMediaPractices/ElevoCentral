@@ -18,10 +18,145 @@ import passport from "./auth";
 import { hashPassword, hasRole, hasPermission } from "./auth";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Authentication routes
+  app.post("/api/auth/login", (req: Request, res: Response, next) => {
+    passport.authenticate("local", (err: any, user: any, info: any) => {
+      if (err) {
+        return next(err);
+      }
+      
+      if (!user) {
+        return res.status(401).json({
+          message: info?.message || "Authentication failed",
+          success: false
+        });
+      }
+      
+      req.login(user, (loginErr) => {
+        if (loginErr) {
+          return next(loginErr);
+        }
+        
+        // Don't send the password back to the client
+        const userResponse = {
+          id: user.id,
+          username: user.username,
+          fullName: user.fullName,
+          role: user.role,
+          profileImageUrl: user.profileImageUrl
+        };
+        
+        return res.json({
+          message: "Login successful",
+          success: true,
+          user: userResponse
+        });
+      });
+    })(req, res, next);
+  });
+
+  app.post("/api/auth/register", async (req: Request, res: Response) => {
+    try {
+      const { username, password, fullName, role = "parent" } = req.body;
+      
+      // Check if username already exists
+      const existingUser = await storage.getUserByUsername(username);
+      if (existingUser) {
+        return res.status(409).json({
+          message: "Username already exists",
+          success: false
+        });
+      }
+      
+      // Hash the password
+      const hashedPassword = await hashPassword(password);
+      
+      // Create the user with hashed password
+      const newUser = await storage.createUser({
+        username,
+        password: hashedPassword,
+        fullName,
+        role,
+        profileImageUrl: null
+      });
+      
+      // Don't send the password back to the client
+      const userResponse = {
+        id: newUser.id,
+        username: newUser.username,
+        fullName: newUser.fullName,
+        role: newUser.role,
+        profileImageUrl: newUser.profileImageUrl
+      };
+      
+      return res.status(201).json({
+        message: "Registration successful",
+        success: true,
+        user: userResponse
+      });
+    } catch (error) {
+      console.error("Registration error:", error);
+      return res.status(500).json({
+        message: "Registration failed",
+        success: false
+      });
+    }
+  });
+
+  app.get("/api/auth/user", (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({
+        message: "Not authenticated",
+        success: false
+      });
+    }
+    
+    // Don't send the password back to the client
+    const user = req.user as any;
+    const userResponse = {
+      id: user.id,
+      username: user.username,
+      fullName: user.fullName,
+      role: user.role,
+      profileImageUrl: user.profileImageUrl
+    };
+    
+    return res.json({
+      user: userResponse,
+      success: true
+    });
+  });
+
+  app.post("/api/auth/logout", (req: Request, res: Response) => {
+    req.logout((err) => {
+      if (err) {
+        return res.status(500).json({
+          message: "Logout failed",
+          success: false
+        });
+      }
+      
+      req.session.destroy((err) => {
+        if (err) {
+          return res.status(500).json({
+            message: "Session destruction failed",
+            success: false
+          });
+        }
+        
+        res.clearCookie("connect.sid");
+        return res.json({
+          message: "Logout successful",
+          success: true
+        });
+      });
+    });
+  });
+
   // API Routes - prefix all routes with /api
   
   // Users routes
-  app.get("/api/users", async (req, res) => {
+  app.get("/api/users", hasRole('admin'), async (req, res) => {
     const users = await storage.getUsers();
     res.json(users);
   });
@@ -40,7 +175,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(user);
   });
   
-  app.post("/api/users", async (req, res) => {
+  app.post("/api/users", hasRole('admin'), async (req, res) => {
     try {
       const userData = insertUserSchema.parse(req.body);
       const user = await storage.createUser(userData);
@@ -77,7 +212,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(staffMember);
   });
   
-  app.post("/api/staff", async (req, res) => {
+  app.post("/api/staff", hasRole('admin'), async (req, res) => {
     try {
       const staffData = insertStaffSchema.parse(req.body);
       const staffMember = await storage.createStaff(staffData);
@@ -236,7 +371,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
   
-  app.post("/api/announcements", async (req, res) => {
+  app.post("/api/announcements", hasRole('staff'), async (req, res) => {
     try {
       const announcementData = insertAnnouncementSchema.parse(req.body);
       const announcement = await storage.createAnnouncement(announcementData);
@@ -322,7 +457,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
   
-  app.post("/api/students", async (req, res) => {
+  app.post("/api/students", hasRole('staff'), async (req, res) => {
     try {
       const studentData = insertStudentSchema.parse(req.body);
       const student = await storage.createStudent(studentData);
@@ -426,7 +561,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
   
-  app.post("/api/behavior-incidents", async (req, res) => {
+  app.post("/api/behavior-incidents", hasRole('staff'), async (req, res) => {
     try {
       const incidentData = insertBehaviorIncidentSchema.parse(req.body);
       const incident = await storage.createBehaviorIncident(incidentData);
