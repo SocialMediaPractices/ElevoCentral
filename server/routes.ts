@@ -190,7 +190,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Staff routes
-  app.get("/api/staff", hasRole(['admin', 'staff']), async (req, res) => {
+  app.get("/api/staff", hasRole(['admin', 'staff'], true), async (req, res) => {
     const { active } = req.query;
     const staff = active === "true" 
       ? await storage.getActiveStaff() 
@@ -227,7 +227,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Activities routes
-  app.get("/api/activities", hasPermission('view-activities'), async (req, res) => {
+  app.get("/api/activities", hasPermission('view-activities', true), async (req, res) => {
     const { date, period } = req.query;
     
     let activities;
@@ -321,7 +321,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Announcements routes
-  app.get("/api/announcements", hasPermission('view-announcements'), async (req, res) => {
+  app.get("/api/announcements", hasPermission('view-announcements', true), async (req, res) => {
     const { limit } = req.query;
     
     let announcements;
@@ -753,7 +753,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Dashboard stats endpoint
-  app.get("/api/dashboard/stats", hasRole(['admin', 'staff']), async (req, res) => {
+  app.get("/api/dashboard/stats", hasRole(['admin', 'staff'], true), async (req, res) => {
     const date = req.query.date as string || new Date().toISOString().split('T')[0];
     
     const activities = await storage.getActivitiesByDate(date);

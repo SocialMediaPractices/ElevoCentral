@@ -71,9 +71,13 @@ passport.deserializeUser<number>(async (id, done) => {
 });
 
 // Permission-based authorization middleware
-export const hasPermission = (requiredPermission: string) => {
+export const hasPermission = (requiredPermission: string, allowPublic: boolean = false) => {
   return async (req: any, res: any, next: any) => {
     if (!req.isAuthenticated()) {
+      // If this endpoint allows public access, continue
+      if (allowPublic) {
+        return next();
+      }
       return res.status(401).json({ message: 'Not authenticated' });
     }
 
@@ -224,9 +228,13 @@ export const hasPermission = (requiredPermission: string) => {
 };
 
 // Role-based authorization middleware
-export const hasRole = (requiredRole: string | string[]) => {
+export const hasRole = (requiredRole: string | string[], allowPublic: boolean = false) => {
   return (req: any, res: any, next: any) => {
     if (!req.isAuthenticated()) {
+      // If this endpoint allows public access, continue
+      if (allowPublic) {
+        return next();
+      }
       return res.status(401).json({ message: 'Not authenticated' });
     }
 
