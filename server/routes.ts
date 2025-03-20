@@ -979,6 +979,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get students by dismissal time
+  app.get("/api/students/dismissal/:time", hasRole(['admin', 'staff', 'parent']), async (req, res) => {
+    try {
+      const dismissalTime = req.params.time;
+      
+      // Validate dismissal time
+      if (!["4:30", "5:00", "5:30", "6:00"].includes(dismissalTime)) {
+        return res.status(400).json({ error: "Invalid dismissal time" });
+      }
+      
+      const students = await storage.getStudentsByDismissalTime(dismissalTime);
+      
+      // For security, only return necessary information
+      const studentsData = students.map(student => ({
+        id: student.id,
+        name: `${student.firstName} ${student.lastName}`,
+        grade: student.grade,
+        dismissalTime: student.dismissalTime,
+        profileImageUrl: student.profileImageUrl
+      }));
+      
+      res.json(studentsData);
+    } catch (error) {
+      console.error("Error fetching students by dismissal time:", error);
+      res.status(500).json({ error: "Failed to fetch students by dismissal time" });
+    }
+  });
+  
+  // Update student dismissal time
+  app.patch("/api/students/:id/dismissal", hasRole(['admin', 'staff']), async (req, res) => {
+    try {
+      const studentId = parseInt(req.params.id);
+      const { dismissalTime } = req.body;
+      
+      // Validate dismissal time
+      if (!["4:30", "5:00", "5:30", "6:00"].includes(dismissalTime)) {
+        return res.status(400).json({ error: "Invalid dismissal time" });
+      }
+      
+      const updatedStudent = await storage.updateStudentDismissalTime(studentId, dismissalTime);
+      
+      // For security, only return necessary information
+      const studentData = {
+        id: updatedStudent.id,
+        name: `${updatedStudent.firstName} ${updatedStudent.lastName}`,
+        grade: updatedStudent.grade,
+        dismissalTime: updatedStudent.dismissalTime
+      };
+      
+      res.json(studentData);
+    } catch (error) {
+      console.error("Error updating student dismissal time:", error);
+      res.status(500).json({ error: "Failed to update student dismissal time" });
+    }
+  });
+
   // Parent dashboard data endpoint
   app.get("/api/parent/dashboard", hasRole('parent'), async (req, res) => {
     try {
@@ -1135,6 +1191,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })
       );
       
+      // Daily schedule information based on the document
+      const dailySchedule = {
+        regularDay: {
+          checkIn: {
+            kindergarten: "2:30 PM",
+            regular: "2:55 PM"
+          },
+          periods: [
+            {
+              time: "3:00 - 3:30 PM",
+              activities: [
+                { grade: "4th-6th", activity: "Homework" },
+                { grade: "K-3rd", activity: "Supper" }
+              ]
+            },
+            {
+              time: "3:30 - 4:00 PM",
+              activities: [
+                { grade: "4th-6th", activity: "Supper" },
+                { grade: "K-3rd", activity: "Homework or Word of the Week" }
+              ]
+            },
+            {
+              time: "4:00 - 4:30 PM",
+              activities: [
+                { grade: "1st-3rd", activity: "Homework or Word of the Week" },
+                { grade: "All Grades", activity: "Outside Game Time or Unit Activity" }
+              ]
+            }
+          ],
+          dismissalTimes: [
+            { time: "4:30 PM", type: "Early Release" },
+            { time: "5:00 PM", type: "Early Release" },
+            { time: "5:30 PM", type: "Early Release" },
+            { time: "6:00 PM", type: "Regular Dismissal" }
+          ]
+        }
+      };
+      
       // Construct full dashboard data
       const dashboardData = {
         children: children.map(child => ({
@@ -1142,11 +1237,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           name: `${child.firstName} ${child.lastName}`,
           grade: child.grade,
           profileImageUrl: child.profileImageUrl,
-          behaviorTier: child.currentTier
+          behaviorTier: child.currentTier,
+          dismissalTime: child.dismissalTime
         })),
         recentHomework: homeworkWithDetails,
         unreadNotes: notesWithDetails,
-        recentIncidents: incidentsWithDetails
+        recentIncidents: incidentsWithDetails,
+        dailySchedule: dailySchedule
       };
       
       res.json(dashboardData);

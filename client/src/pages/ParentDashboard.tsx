@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { Loader2, AlertCircle, CheckCircle2, Clock, BookOpen, Award, MessageSquare, Bell, User } from "lucide-react";
+import { Loader2, AlertCircle, CheckCircle2, Clock, BookOpen, Award, MessageSquare, Bell, User, CalendarClock } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -366,6 +366,10 @@ export default function ParentDashboard() {
           <TabsTrigger value="incidents" className="flex items-center">
             <Bell className="h-4 w-4 mr-2" />
             Incidents
+          </TabsTrigger>
+          <TabsTrigger value="schedule" className="flex items-center">
+            <CalendarClock className="h-4 w-4 mr-2" />
+            Schedule
           </TabsTrigger>
         </TabsList>
 
