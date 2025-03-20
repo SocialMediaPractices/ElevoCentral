@@ -8,24 +8,33 @@ import { storage } from './storage';
 passport.use(
   new LocalStrategy(async (username, password, done) => {
     try {
+      console.log(`[LOGIN] Attempting login for username: ${username}`);
+      
       // Find user by username
       const user = await storage.getUserByUsername(username);
       
       // If user doesn't exist
       if (!user) {
+        console.log(`[LOGIN] User not found: ${username}`);
         return done(null, false, { message: 'Incorrect username or password' });
       }
       
+      console.log(`[LOGIN] User found: ${username}, comparing passwords`);
+      
       // Compare passwords
       const isMatch = await bcrypt.compare(password, user.password);
+      
+      console.log(`[LOGIN] Password match result: ${isMatch}`);
       
       if (!isMatch) {
         return done(null, false, { message: 'Incorrect username or password' });
       }
       
       // If credentials are valid, return the user
+      console.log(`[LOGIN] Authentication successful for: ${username}`);
       return done(null, user);
     } catch (error) {
+      console.error(`[LOGIN] Error during authentication:`, error);
       return done(error);
     }
   })
