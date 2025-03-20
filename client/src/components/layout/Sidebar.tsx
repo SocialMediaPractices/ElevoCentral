@@ -47,7 +47,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const mobileClasses = isOpen ? "mobile-menu-visible" : "mobile-menu-hidden";
   
   return (
-    <nav id="main-nav" className={`bg-white w-64 shadow-md fixed h-full z-10 transition-transform duration-300 ${mobileClasses} desktop-nav lg:relative`}>
+    <nav id="main-nav" className={`main-sidebar bg-white w-64 shadow-md fixed h-full z-10 transition-transform duration-300 ${mobileClasses} desktop-nav lg:relative`}>
       <div className="py-6 px-4">
         <div className="mb-8 px-2">
           <div className="flex flex-col items-center mb-4">
