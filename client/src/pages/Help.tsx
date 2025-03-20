@@ -8,15 +8,27 @@ import {
   ChevronRight,
   ChevronDown,
   Mail,
-  Phone
+  Phone,
+  PlayCircle
 } from "lucide-react";
 import { useState } from "react";
+import { useOnboarding } from "@/hooks/use-onboarding";
 
 export default function Help() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const { resetTutorial, startTutorial } = useOnboarding();
   
   const toggleFaq = (index: number) => {
     setOpenFaq(openFaq === index ? null : index);
+  };
+  
+  const handleRestartTutorial = () => {
+    resetTutorial();
+    setTimeout(() => {
+      startTutorial();
+      // Redirect to dashboard where the tutorial will start
+      window.location.href = '/';
+    }, 100);
   };
   
   const faqs = [
@@ -163,6 +175,34 @@ export default function Help() {
               <a href="#" className="text-primary hover:text-blue-700 font-nunito text-sm font-semibold">
                 View all FAQs
               </a>
+            </div>
+          </div>
+        </div>
+        
+        {/* Interactive Tutorials */}
+        <div className="bg-white rounded-custom shadow-sm overflow-hidden mb-8">
+          <div className="px-5 py-4 border-b border-lightGray">
+            <h3 className="font-nunito font-bold text-lg text-textColor">Interactive Tutorials</h3>
+            <p className="text-sm text-darkGray">Learn how to use Elevo Central with guided tutorials</p>
+          </div>
+          
+          <div className="p-5">
+            <div className="flex items-center">
+              <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center mr-4">
+                <PlayCircle className="h-6 w-6 text-primary" />
+              </div>
+              <div className="flex-1">
+                <h4 className="font-nunito font-semibold text-textColor mb-1">Application Tour</h4>
+                <p className="text-sm text-darkGray mb-2">
+                  Take a guided tour of Elevo Central to learn about its key features and how to use them effectively.
+                </p>
+                <button 
+                  onClick={handleRestartTutorial}
+                  className="bg-primary text-white rounded-custom py-2 px-4 text-sm font-nunito font-semibold hover:bg-blue-600 transition-colors"
+                >
+                  Start Tutorial
+                </button>
+              </div>
             </div>
           </div>
         </div>
