@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -15,11 +15,13 @@ import Settings from "@/pages/Settings";
 import Help from "@/pages/Help";
 import Homework from "@/pages/Homework";
 import ParentDashboard from "@/pages/ParentDashboard";
+import Login from "@/pages/Login";
 import Layout from "@/components/layout/Layout";
 
 function Router() {
   return (
     <Switch>
+      <Route path="/login" component={Login} />
       <Route path="/" component={Dashboard} />
       <Route path="/programs" component={Programs} />
       <Route path="/staff" component={Staff} />
@@ -39,11 +41,21 @@ function Router() {
 }
 
 function App() {
+  const [location] = useLocation();
+  
+  // Paths that should not use the Layout component
+  const noLayoutPaths = ["/login"];
+  const shouldUseLayout = !noLayoutPaths.includes(location);
+
   return (
     <QueryClientProvider client={queryClient}>
-      <Layout>
+      {shouldUseLayout ? (
+        <Layout>
+          <Router />
+        </Layout>
+      ) : (
         <Router />
-      </Layout>
+      )}
       <Toaster />
     </QueryClientProvider>
   );
