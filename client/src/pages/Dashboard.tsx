@@ -21,23 +21,31 @@ import { Activity, Announcement, Staff } from "@shared/schema";
 export default function Dashboard() {
   const [date, setDate] = useState(getToday());
   
+  // Define types for stats
+  interface DashboardStats {
+    studentCount: number;
+    activitiesCount: number;
+    staffCount: number;
+    announcementsCount: number;
+  }
+  
   // Get dashboard stats
-  const { data: stats, isLoading: statsLoading } = useQuery({
+  const { data: stats, isLoading: statsLoading } = useQuery<DashboardStats>({
     queryKey: ['/api/dashboard/stats'],
   });
   
   // Get activities for today
-  const { data: activities, isLoading: activitiesLoading } = useQuery({
+  const { data: activities, isLoading: activitiesLoading } = useQuery<Activity[]>({
     queryKey: [`/api/activities?date=${date}`],
   });
   
   // Get active staff
-  const { data: staffData, isLoading: staffLoading } = useQuery({
+  const { data: staffData, isLoading: staffLoading } = useQuery<Staff[]>({
     queryKey: ['/api/staff?active=true'],
   });
   
   // Get announcements
-  const { data: announcements, isLoading: announcementsLoading } = useQuery({
+  const { data: announcements, isLoading: announcementsLoading } = useQuery<Announcement[]>({
     queryKey: ['/api/announcements?limit=3'],
   });
   
@@ -60,7 +68,7 @@ export default function Dashboard() {
         </div>
         
         {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="stats-cards grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <StatCard 
             icon={<School className="h-5 w-5" />}
             iconBgColor="bg-blue-100"
@@ -99,7 +107,7 @@ export default function Dashboard() {
         </div>
         
         {/* Today's Schedule Section */}
-        <div className="mb-8">
+        <div className="activities-section mb-8">
           <div className="flex justify-between items-center mb-4">
             <h2 className="font-nunito font-bold text-xl text-textColor">Today's Schedule</h2>
             <div className="flex">
@@ -172,7 +180,7 @@ export default function Dashboard() {
         {/* Additional Sections */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Staff Section */}
-          <div className="lg:col-span-1">
+          <div className="staff-section lg:col-span-1">
             <div className="bg-white rounded-custom shadow-sm p-5">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-nunito font-bold text-lg text-textColor">Staff on Duty</h3>
@@ -192,7 +200,7 @@ export default function Dashboard() {
           </div>
           
           {/* Announcements Section */}
-          <div className="lg:col-span-2">
+          <div className="announcements-section lg:col-span-2">
             <div className="bg-white rounded-custom shadow-sm p-5">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-nunito font-bold text-lg text-textColor">Announcements</h3>
