@@ -250,7 +250,7 @@ export default function ParentDashboard() {
   // Mark a behavior note as read
   const markNoteAsRead = async (noteId: number) => {
     try {
-      await apiRequest('/api/behavior-notes/' + noteId + '/mark-read', 'PATCH');
+      await apiRequest('PATCH', '/api/behavior-notes/' + noteId + '/mark-read');
       
       toast({
         title: 'Note marked as read',
