@@ -12,6 +12,11 @@ export const programPeriodEnum = pgEnum('program_period', [
   'before-school', 'after-school'
 ]);
 
+// Dismissal time enum
+export const dismissalTimeEnum = pgEnum('dismissal_time', [
+  '4:30', '5:00', '5:30', '6:00'
+]);
+
 // User roles enum
 export const userRoleEnum = pgEnum('user_role', [
   'admin', 'staff', 'parent'
@@ -189,6 +194,7 @@ export const students = pgTable("students", {
   medicalNotes: text("medical_notes"),
   currentTier: behaviorTierEnum("current_tier").default("good-standing").notNull(),
   tierUpdateDate: text("tier_update_date"), // Format: "YYYY-MM-DD"
+  dismissalTime: dismissalTimeEnum("dismissal_time").default("6:00"),
 });
 
 // Behavior incidents table
@@ -247,6 +253,7 @@ export const insertStudentSchema = createInsertSchema(students).pick({
   medicalNotes: true,
   currentTier: true,
   tierUpdateDate: true,
+  dismissalTime: true,
 });
 
 export const insertBehaviorIncidentSchema = createInsertSchema(behaviorIncidents).pick({

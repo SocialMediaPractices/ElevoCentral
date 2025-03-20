@@ -51,7 +51,9 @@ export interface IStorage {
   createStudent(student: InsertStudent): Promise<Student>;
   getAllStudents(): Promise<Student[]>;
   getStudentsByTier(tier: string): Promise<Student[]>;
+  getStudentsByDismissalTime(dismissalTime: string): Promise<Student[]>;
   updateStudentTier(studentId: number, tier: string, updateDate: string): Promise<Student>;
+  updateStudentDismissalTime(studentId: number, dismissalTime: string): Promise<Student>;
   
   // Behavior Incident methods
   getBehaviorIncident(id: number): Promise<BehaviorIncident | undefined>;
@@ -302,6 +304,12 @@ export class MemStorage implements IStorage {
       student => student.currentTier === tier
     );
   }
+  
+  async getStudentsByDismissalTime(dismissalTime: string): Promise<Student[]> {
+    return Array.from(this.students.values()).filter(
+      student => student.dismissalTime === dismissalTime
+    );
+  }
 
   async updateStudentTier(studentId: number, tier: string, updateDate: string): Promise<Student> {
     const student = await this.getStudent(studentId);
@@ -313,6 +321,21 @@ export class MemStorage implements IStorage {
       ...student,
       currentTier: tier as any, // Cast to satisfy TypeScript
       tierUpdateDate: updateDate
+    };
+    
+    this.students.set(studentId, updatedStudent);
+    return updatedStudent;
+  }
+  
+  async updateStudentDismissalTime(studentId: number, dismissalTime: string): Promise<Student> {
+    const student = await this.getStudent(studentId);
+    if (!student) {
+      throw new Error(`Student with ID ${studentId} not found`);
+    }
+    
+    const updatedStudent: Student = {
+      ...student,
+      dismissalTime: dismissalTime as any // Cast to satisfy TypeScript
     };
     
     this.students.set(studentId, updatedStudent);
