@@ -14,6 +14,7 @@ import Parents from "@/pages/Parents";
 import Settings from "@/pages/Settings";
 import Help from "@/pages/Help";
 import Homework from "@/pages/Homework";
+import ParentDashboard from "@/pages/ParentDashboard";
 import Layout from "@/components/layout/Layout";
 
 function Router() {
@@ -30,6 +31,7 @@ function Router() {
       <Route path="/settings" component={Settings} />
       <Route path="/help" component={Help} />
       <Route path="/homework" component={Homework} />
+      <Route path="/parent-dashboard" component={ParentDashboard} />
       {/* Fallback to 404 */}
       <Route component={NotFound} />
     </Switch>

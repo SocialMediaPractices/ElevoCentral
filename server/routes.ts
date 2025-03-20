@@ -12,10 +12,14 @@ import {
   insertBehaviorIncidentSchema,
   insertBehaviorNoteSchema,
   insertTierTransitionSchema,
-  insertHomeworkAssignmentSchema
+  insertHomeworkAssignmentSchema,
+  HomeworkAssignment,
+  BehaviorNote,
+  BehaviorIncident
 } from "@shared/schema";
 import passport from "./auth";
 import { hashPassword, hasRole, hasPermission } from "./auth";
+import { WebSocket, WebSocketServer } from 'ws';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Authentication routes
@@ -975,6 +979,241 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Parent dashboard data endpoint
+  app.get("/api/parent/dashboard", hasRole('parent'), async (req, res) => {
+    try {
+      const user = req.user as any;
+      const parentId = user.id;
+      
+      // Get children info
+      const children = await storage.getStudentsByParentId(parentId);
+      
+      if (!children.length) {
+        return res.json({
+          children: [],
+          recentHomework: [],
+          unreadNotes: [],
+          recentIncidents: []
+        });
+      }
+      
+      // Get recent homework assignments
+      const childrenIds = children.map(child => child.id);
+      
+      // Store all homework assignments
+      let allHomework: HomeworkAssignment[] = [];
+      for (const childId of childrenIds) {
+        const homework = await storage.getHomeworkByStudent(childId);
+        allHomework = [...allHomework, ...homework];
+      }
+      
+      // Sort by due date and take only the 5 most recent
+      const recentHomework = allHomework
+        .sort((a, b) => new Date(b.assignedDate).getTime() - new Date(a.assignedDate).getTime())
+        .slice(0, 5);
+      
+      // Enhance homework with additional data
+      const homeworkWithDetails = await Promise.all(
+        recentHomework.map(async (hw) => {
+          const student = await storage.getStudent(hw.studentId);
+          const activity = await storage.getActivity(hw.activityId);
+          const assignedBy = await storage.getStaff(hw.assignedByStaffId);
+          const assignedByUser = assignedBy?.userId ? await storage.getUser(assignedBy.userId) : null;
+          
+          let verifiedBy = null;
+          if (hw.verifiedByStaffId) {
+            const verifier = await storage.getStaff(hw.verifiedByStaffId);
+            const verifierUser = verifier?.userId ? await storage.getUser(verifier.userId) : null;
+            
+            if (verifier && verifierUser) {
+              verifiedBy = {
+                id: verifier.id,
+                firstName: verifierUser.fullName.split(' ')[0],
+                lastName: verifierUser.fullName.split(' ').slice(1).join(' '),
+                title: verifier.title,
+                profileImageUrl: verifierUser.profileImageUrl
+              };
+            }
+          }
+          
+          return {
+            ...hw,
+            student: student ? {
+              id: student.id,
+              firstName: student.firstName,
+              lastName: student.lastName,
+              grade: student.grade,
+              profileImageUrl: student.profileImageUrl
+            } : null,
+            activity: activity ? {
+              id: activity.id,
+              name: activity.name,
+              type: activity.activityType
+            } : null,
+            assignedBy: assignedBy && assignedByUser ? {
+              id: assignedBy.id,
+              firstName: assignedByUser.fullName.split(' ')[0],
+              lastName: assignedByUser.fullName.split(' ').slice(1).join(' '),
+              title: assignedBy.title,
+              profileImageUrl: assignedByUser.profileImageUrl
+            } : null,
+            verifiedBy
+          };
+        })
+      );
+      
+      // Get unread behavior notes
+      let unreadNotes: BehaviorNote[] = [];
+      for (const childId of childrenIds) {
+        const notes = await storage.getParentVisibleNotes(childId);
+        // Filter for notes that haven't been read
+        const unread = notes.filter(note => !note.parentRead);
+        unreadNotes = [...unreadNotes, ...unread];
+      }
+      
+      // Enhance notes with student and staff info
+      const notesWithDetails = await Promise.all(
+        unreadNotes.map(async (note) => {
+          const student = await storage.getStudent(note.studentId);
+          const staffMember = await storage.getStaff(note.staffId);
+          const staffUser = staffMember?.userId ? await storage.getUser(staffMember.userId) : null;
+          
+          return {
+            ...note,
+            student: student ? {
+              id: student.id,
+              name: `${student.firstName} ${student.lastName}`,
+              grade: student.grade,
+              profileImageUrl: student.profileImageUrl
+            } : null,
+            staff: staffMember && staffUser ? {
+              id: staffMember.id,
+              name: staffUser.fullName,
+              title: staffMember.title,
+              profileImageUrl: staffUser.profileImageUrl
+            } : null
+          };
+        })
+      );
+      
+      // Get recent behavior incidents
+      let recentIncidents: BehaviorIncident[] = [];
+      for (const childId of childrenIds) {
+        const incidents = await storage.getIncidentsByStudent(childId);
+        // Filter for incidents where parent has been notified
+        const notifiedIncidents = incidents.filter(incident => incident.parentNotified);
+        recentIncidents = [...recentIncidents, ...notifiedIncidents];
+      }
+      
+      // Sort by date and take only the 5 most recent
+      recentIncidents = recentIncidents
+        .sort((a, b) => new Date(b.incidentDate).getTime() - new Date(a.incidentDate).getTime())
+        .slice(0, 5);
+      
+      // Enhance incidents with student and reporter info
+      const incidentsWithDetails = await Promise.all(
+        recentIncidents.map(async (incident) => {
+          const student = await storage.getStudent(incident.studentId);
+          const reporter = incident.reportedByStaffId ? await storage.getStaff(incident.reportedByStaffId) : null;
+          const reporterUser = reporter?.userId ? await storage.getUser(reporter.userId) : null;
+          
+          return {
+            ...incident,
+            student: student ? {
+              id: student.id,
+              name: `${student.firstName} ${student.lastName}`,
+              grade: student.grade,
+              profileImageUrl: student.profileImageUrl
+            } : null,
+            reporter: reporter && reporterUser ? {
+              id: reporter.id,
+              name: reporterUser.fullName,
+              title: reporter.title,
+              profileImageUrl: reporterUser.profileImageUrl
+            } : null
+          };
+        })
+      );
+      
+      // Construct full dashboard data
+      const dashboardData = {
+        children: children.map(child => ({
+          id: child.id,
+          name: `${child.firstName} ${child.lastName}`,
+          grade: child.grade,
+          profileImageUrl: child.profileImageUrl,
+          behaviorTier: child.currentTier
+        })),
+        recentHomework: homeworkWithDetails,
+        unreadNotes: notesWithDetails,
+        recentIncidents: incidentsWithDetails
+      };
+      
+      res.json(dashboardData);
+    } catch (error) {
+      console.error("Error getting parent dashboard data:", error);
+      res.status(500).json({ message: "Failed to fetch parent dashboard data" });
+    }
+  });
+
   const httpServer = createServer(app);
+  
+  // Set up WebSocket for real-time updates on a different path to avoid conflicts with Vite
+  const wss = new WebSocketServer({ 
+    server: httpServer,
+    path: '/api/ws' // Custom path for our WebSocket server
+  });
+  
+  // Handle WebSocket connections
+  wss.on('connection', (ws) => {
+    console.log('Client connected to WebSocket');
+    
+    // Send a welcome message
+    ws.send(JSON.stringify({
+      type: 'connection',
+      message: 'Connected to Elevo Central real-time updates'
+    }));
+    
+    // Handle messages from client
+    ws.on('message', (message) => {
+      try {
+        const data = JSON.parse(message.toString());
+        console.log('Received:', data);
+        
+        // Handle different message types
+        if (data.type === 'subscribe') {
+          // Subscribe to updates for specific entity
+          ws.entityId = data.entityId;
+          ws.entityType = data.entityType;
+          console.log(`Client subscribed to ${data.entityType} updates for ID: ${data.entityId}`);
+        }
+      } catch (error) {
+        console.error('Error processing WebSocket message:', error);
+      }
+    });
+    
+    // Handle client disconnect
+    ws.on('close', () => {
+      console.log('Client disconnected from WebSocket');
+    });
+  });
+  
+  // Helper function to broadcast updates to relevant clients
+  global.broadcastUpdate = (entityType, entityId, data) => {
+    wss.clients.forEach((client) => {
+      if (
+        client.readyState === WebSocket.OPEN && 
+        (client.entityType === entityType && client.entityId === entityId)
+      ) {
+        client.send(JSON.stringify({
+          type: 'update',
+          entityType,
+          entityId,
+          data
+        }));
+      }
+    });
+  };
+
   return httpServer;
 }
