@@ -16,6 +16,7 @@ type Child = {
   grade: string;
   profileImageUrl: string | null;
   behaviorTier: string;
+  dismissalTime: string;
 };
 
 type HomeworkAssignment = {
@@ -91,11 +92,32 @@ type BehaviorIncident = {
   } | null;
 };
 
+type DailySchedule = {
+  regularDay: {
+    checkIn: {
+      kindergarten: string;
+      regular: string;
+    };
+    periods: {
+      time: string;
+      activities: {
+        grade: string;
+        activity: string;
+      }[];
+    }[];
+    dismissalTimes: {
+      time: string;
+      type: string;
+    }[];
+  };
+};
+
 type ParentDashboardData = {
   children: Child[];
   recentHomework: HomeworkAssignment[];
   unreadNotes: BehaviorNote[];
   recentIncidents: BehaviorIncident[];
+  dailySchedule: DailySchedule;
 };
 
 // Function to get tier badge color
@@ -135,6 +157,22 @@ function getStatusBadgeColor(status: string) {
       return 'bg-yellow-100 text-yellow-800';
     case 'overdue':
       return 'bg-red-100 text-red-800';
+    default:
+      return 'bg-gray-100 text-gray-800';
+  }
+}
+
+// Function to get dismissal time badge color
+function getDismissalBadgeColor(time: string) {
+  switch (time) {
+    case '4:30':
+      return 'bg-amber-100 text-amber-800';
+    case '5:00':
+      return 'bg-orange-100 text-orange-800';
+    case '5:30':
+      return 'bg-purple-100 text-purple-800';
+    case '6:00':
+      return 'bg-blue-100 text-blue-800';
     default:
       return 'bg-gray-100 text-gray-800';
   }
@@ -344,6 +382,12 @@ export default function ParentDashboard() {
                   {getTierName(child.behaviorTier)}
                 </Badge>
               </div>
+              <div className="flex items-center mt-2">
+                <span className="text-sm font-medium mr-2">Dismissal Time:</span>
+                <Badge className={getDismissalBadgeColor(child.dismissalTime)}>
+                  {child.dismissalTime} PM
+                </Badge>
+              </div>
             </CardContent>
             <CardFooter className="border-t pt-4 bg-gray-50">
               <Button variant="outline" className="w-full">View Details</Button>
@@ -533,6 +577,122 @@ export default function ParentDashboard() {
                 <p className="text-gray-600">There are no behavior incidents to report.</p>
               </div>
             )}
+          </div>
+        </TabsContent>
+
+        {/* Schedule Tab */}
+        <TabsContent value="schedule" className="pt-2">
+          <h3 className="text-lg font-semibold mb-3">Daily Schedule</h3>
+          <div className="space-y-8">
+            {/* Dismissal Times */}
+            <Card>
+              <CardHeader className="bg-blue-50">
+                <CardTitle className="flex items-center">
+                  <CalendarClock className="h-5 w-5 text-blue-600 mr-2" />
+                  Dismissal Schedule
+                </CardTitle>
+                <CardDescription>
+                  Scheduled dismissal times for your children
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pt-4">
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {dashboardData.children.map(child => (
+                      <div key={child.id} className="flex items-center space-x-3 border rounded-md p-3">
+                        <Avatar className="h-10 w-10">
+                          {child.profileImageUrl ? (
+                            <AvatarImage src={child.profileImageUrl} alt={child.name} />
+                          ) : (
+                            <AvatarFallback>{getAvatarLetters(child.name)}</AvatarFallback>
+                          )}
+                        </Avatar>
+                        <div>
+                          <div className="font-medium">{child.name}</div>
+                          <div className="text-sm text-gray-500">Grade {child.grade}</div>
+                        </div>
+                        <div className="ml-auto">
+                          <Badge className={getDismissalBadgeColor(child.dismissalTime)}>
+                            {child.dismissalTime} PM
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  <div className="bg-gray-50 p-3 rounded-md text-sm text-gray-600 mt-4">
+                    <p className="font-medium mb-1">Dismissal Time Options:</p>
+                    <ul className="list-disc list-inside space-y-1 pl-2">
+                      {dashboardData.dailySchedule.regularDay.dismissalTimes.map((option, index) => (
+                        <li key={index}><span className="font-medium">{option.time}</span> - {option.type}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            {/* Daily Schedule */}
+            <Card>
+              <CardHeader className="bg-amber-50">
+                <CardTitle className="flex items-center">
+                  <Clock className="h-5 w-5 text-amber-600 mr-2" />
+                  Regular Day Schedule
+                </CardTitle>
+                <CardDescription>
+                  Daily activities and schedule
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pt-4">
+                <div className="space-y-6">
+                  <div className="border rounded-md overflow-hidden">
+                    <div className="bg-gray-100 px-4 py-2 font-medium">Check-In Times</div>
+                    <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="flex justify-between items-center">
+                        <span>Kindergarten:</span>
+                        <Badge variant="outline" className="bg-purple-50 text-purple-700">
+                          {dashboardData.dailySchedule.regularDay.checkIn.kindergarten}
+                        </Badge>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span>Regular Grades:</span>
+                        <Badge variant="outline" className="bg-blue-50 text-blue-700">
+                          {dashboardData.dailySchedule.regularDay.checkIn.regular}
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="border rounded-md overflow-hidden">
+                    <div className="bg-gray-100 px-4 py-2 font-medium">Daily Activities</div>
+                    <div className="p-4 space-y-4">
+                      {dashboardData.dailySchedule.regularDay.periods.map((period, index) => (
+                        <div key={index} className="border-b pb-4 last:border-0 last:pb-0">
+                          <div className="font-medium text-blue-700 mb-2">{period.time}</div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            {period.activities.map((activity, actIndex) => (
+                              <div key={actIndex} className="bg-gray-50 p-2 rounded-md flex justify-between">
+                                <span className="font-medium">{activity.grade}:</span>
+                                <span>{activity.activity}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  <div className="bg-blue-50 p-4 rounded-md">
+                    <h4 className="font-medium text-blue-800 mb-2">Important Notes</h4>
+                    <ul className="list-disc list-inside space-y-1 text-sm">
+                      <li>All students must check in at their designated time</li>
+                      <li>If a student needs early dismissal outside of the scheduled times, please contact the office</li>
+                      <li>Students will only be released to authorized adults listed in their file</li>
+                    </ul>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </TabsContent>
       </Tabs>
