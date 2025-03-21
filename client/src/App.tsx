@@ -38,8 +38,7 @@ function ProtectedRoute({ component: Component, adminOnly = false, ...rest }: an
   const { data: userData, isLoading } = useQuery<UserData, Error, UserData, [string]>({
     queryKey: ['/api/auth/user'],
     queryFn: async ({ queryKey }) => {
-      const response = await apiRequest({ url: '/api/auth/user', on401: 'returnNull' });
-      return response as UserData;
+      return await apiRequest({ url: '/api/auth/user', on401: 'returnNull' });
     },
   });
 

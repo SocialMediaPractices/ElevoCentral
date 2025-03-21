@@ -1,5 +1,6 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
+// Helper function to validate responses
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
@@ -7,11 +8,21 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
-export async function apiRequest(
-  method: string,
+// Define behavior for handling 401 unauthorized responses
+export type UnauthorizedBehavior = "returnNull" | "throw";
+
+// API Request function with improved parameter handling
+export async function apiRequest({
+  method = 'GET',
+  url,
+  data,
+  on401 = 'throw'
+}: {
+  method?: string,
   url: string,
   data?: unknown | undefined,
-): Promise<Response> {
+  on401?: UnauthorizedBehavior
+}): Promise<any> {
   const res = await fetch(url, {
     method,
     headers: data ? { "Content-Type": "application/json" } : {},
@@ -19,11 +30,15 @@ export async function apiRequest(
     credentials: "include",
   });
 
+  if (on401 === "returnNull" && res.status === 401) {
+    return null;
+  }
+
   await throwIfResNotOk(res);
-  return res;
+  return res.json();
 }
 
-type UnauthorizedBehavior = "returnNull" | "throw";
+// Query function generator for TanStack Query
 export const getQueryFn: <T>(options: {
   on401: UnauthorizedBehavior;
 }) => QueryFunction<T> =

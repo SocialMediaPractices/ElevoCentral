@@ -45,8 +45,7 @@ export default function Login() {
   const { data: userData, isLoading: checkingAuth } = useQuery<UserData, Error, UserData, [string]>({
     queryKey: ['/api/auth/user'],
     queryFn: async ({ queryKey }) => {
-      const response = await apiRequest({ url: '/api/auth/user', on401: 'returnNull' });
-      return response as UserData;
+      return await apiRequest({ url: '/api/auth/user', on401: 'returnNull' });
     },
   });
   
@@ -74,18 +73,13 @@ export default function Login() {
     setError(null);
     
     try {
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(data),
-        credentials: "include" // Important for cookie-based auth
+      const responseData = await apiRequest({
+        method: "POST", 
+        url: "/api/auth/login", 
+        data: data
       });
       
-      const responseData = await response.json();
-      
-      if (response.ok && responseData.success) {
+      if (responseData && responseData.success) {
         // Invalidate any cached user data
         queryClient.invalidateQueries({ queryKey: ['/api/auth/user'] });
         
@@ -101,10 +95,10 @@ export default function Login() {
           navigate("/");
         }
       } else {
-        setError(responseData.message || "Invalid username or password");
+        setError(responseData?.message || "Invalid username or password");
         toast({
           title: "Login failed",
-          description: responseData.message || "Invalid username or password",
+          description: responseData?.message || "Invalid username or password",
           variant: "destructive",
         });
       }
