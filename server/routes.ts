@@ -1255,8 +1255,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Register the roster routes
   // Route to import student data from Excel
-  app.post('/api/roster/import', hasRole(['admin', 'site-manager', 'youth-development-lead']), async (req, res) => {
+  app.post('/api/roster/import', async (req, res) => {
     try {
+      console.log('[DEBUG] Roster import route accessed by:', req.user);
+      
+      // Validate authorization
+      const user = req.user as any;
+      if (!user || !req.isAuthenticated()) {
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication required',
+        });
+      }
+      
+      // Allow access for admin users
+      if (user.role === 'admin') {
+        // Admin users have access
+      } 
+      // Allow access for staff with youth-development-lead role
+      else if (user.role === 'staff') {
+        try {
+          const staffMember = await storage.getStaffByUserId(user.id);
+          if (!staffMember || staffMember.staffRole !== 'youth-development-lead') {
+            return res.status(403).json({
+              success: false,
+              message: 'Access denied. Required role: youth-development-lead',
+            });
+          }
+        } catch (error) {
+          console.error('Error checking staff role for roster import:', error);
+          return res.status(500).json({
+            success: false,
+            message: 'Error checking authorization',
+          });
+        }
+      } else {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied',
+        });
+      }
       const { filePath } = req.body;
       
       if (!filePath) {
@@ -1285,7 +1323,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Get all students (roster data)
-  app.get('/api/roster', hasRole(['admin', 'site-manager', 'youth-development-lead', 'coach']), async (req, res) => {
+  app.get('/api/roster', async (req, res) => {
+    try {
+      console.log('[DEBUG] Roster route accessed by:', req.user);
+      
+      // Validate authorization
+      const user = req.user as any;
+      if (!user || !req.isAuthenticated()) {
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication required',
+        });
+      }
+      
+      // Allow access for admin users
+      if (user.role === 'admin') {
+        // Admin users have access
+      } 
+      // Allow access for staff with permitted roles
+      else if (user.role === 'staff') {
+        try {
+          const staffMember = await storage.getStaffByUserId(user.id);
+          if (!staffMember) {
+            return res.status(403).json({
+              success: false,
+              message: 'Staff record not found',
+            });
+          }
+          
+          // Check staff role
+          const allowedRoles = ['site-manager', 'youth-development-lead', 'coach'];
+          if (!allowedRoles.includes(staffMember.staffRole)) {
+            return res.status(403).json({
+              success: false,
+              message: 'Access denied. Required role: site-manager, youth-development-lead, or coach',
+            });
+          }
+        } catch (error) {
+          console.error('Error checking staff role for roster access:', error);
+          return res.status(500).json({
+            success: false,
+            message: 'Error checking authorization',
+          });
+        }
+      } else {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied',
+        });
+      }
     try {
       const students = await storage.getAllStudents();
       
