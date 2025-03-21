@@ -81,9 +81,9 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // Changed to port 3000 to avoid conflicts
+  // Changed back to port 5000 to match workflow configuration
   // this serves both the API and the client
-  const port = 3000;
+  const port = 5000;
   server.listen({
     port,
     host: "0.0.0.0",
