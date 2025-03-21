@@ -1253,7 +1253,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Register the roster import routes directly
+  // Register the roster routes
+  // Route to import student data from Excel
   app.post('/api/roster/import', hasRole(['admin', 'site-manager', 'youth-development-lead']), async (req, res) => {
     try {
       const { filePath } = req.body;
@@ -1265,8 +1266,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Import the function here to avoid circular dependencies
-      const { importAttendanceData } = require('./utils/excel-import');
+      // Import the attendance data
+      const { importAttendanceData } = await import('./utils/excel-import');
       const result = await importAttendanceData(filePath);
       
       if (!result.success) {

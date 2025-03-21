@@ -11,7 +11,8 @@ import {
   Settings,
   HelpCircle,
   GraduationCap,
-  BookOpen
+  BookOpen,
+  FileSpreadsheet
 } from "lucide-react";
 
 interface SidebarProps {
@@ -28,6 +29,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     { href: "/staff", icon: <Users className="mr-3 w-5 text-center" />, label: "Staff" },
     { href: "/students", icon: <GraduationCap className="mr-3 w-5 text-center" />, label: "Students" },
     { href: "/homework", icon: <BookOpen className="mr-3 w-5 text-center" />, label: "Homework" },
+    { href: "/roster-import", icon: <FileSpreadsheet className="mr-3 w-5 text-center" />, label: "Roster Import" },
     { href: "/events", icon: <Star className="mr-3 w-5 text-center" />, label: "Events" },
     { href: "/clubs", icon: <Shapes className="mr-3 w-5 text-center" />, label: "Clubs" },
     { 
