@@ -14,6 +14,7 @@ import Parents from "@/pages/Parents";
 import Settings from "@/pages/Settings";
 import Help from "@/pages/Help";
 import Homework from "@/pages/Homework";
+import RosterImport from "@/pages/RosterImport";
 import ParentDashboard from "@/pages/ParentDashboard";
 import Login from "@/pages/Login";
 import Layout from "@/components/layout/Layout";
@@ -100,6 +101,9 @@ function Router() {
       </Route>
       <Route path="/parent-dashboard">
         {(params) => <ProtectedRoute component={ParentDashboard} />}
+      </Route>
+      <Route path="/roster-import">
+        {(params) => <ProtectedRoute component={RosterImport} adminOnly={false} />}
       </Route>
       {/* Fallback to 404 */}
       <Route component={NotFound} />

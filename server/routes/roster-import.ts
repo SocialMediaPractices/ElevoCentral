@@ -27,11 +27,11 @@ router.post('/import', hasRole(['admin', 'site-manager', 'youth-development-lead
     }
     
     return res.status(200).json(result);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error in roster import:', error);
     return res.status(500).json({
       success: false,
-      message: `Error importing roster data: ${error.message}`,
+      message: `Error importing roster data: ${error.message || 'Unknown error'}`,
     });
   }
 });
@@ -50,11 +50,11 @@ router.get('/', hasRole(['admin', 'site-manager', 'youth-development-lead', 'coa
       success: true,
       students,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching roster:', error);
     return res.status(500).json({
       success: false,
-      message: `Error fetching roster data: ${error.message}`,
+      message: `Error fetching roster data: ${error.message || 'Unknown error'}`,
     });
   }
 });

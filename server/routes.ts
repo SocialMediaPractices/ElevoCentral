@@ -1253,6 +1253,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Register the roster import routes directly
+  app.post('/api/roster/import', hasRole(['admin', 'site-manager', 'youth-development-lead']), async (req, res) => {
+    try {
+      const { filePath } = req.body;
+      
+      if (!filePath) {
+        return res.status(400).json({
+          success: false,
+          message: 'File path is required',
+        });
+      }
+      
+      // Import the function here to avoid circular dependencies
+      const { importAttendanceData } = require('./utils/excel-import');
+      const result = await importAttendanceData(filePath);
+      
+      if (!result.success) {
+        return res.status(400).json(result);
+      }
+      
+      return res.status(200).json(result);
+    } catch (error: any) {
+      console.error('Error in roster import:', error);
+      return res.status(500).json({
+        success: false,
+        message: `Error importing roster data: ${error.message || 'Unknown error'}`,
+      });
+    }
+  });
+  
+  // Get all students (roster data)
+  app.get('/api/roster', hasRole(['admin', 'site-manager', 'youth-development-lead', 'coach']), async (req, res) => {
+    try {
+      const students = await storage.getAllStudents();
+      
+      return res.status(200).json({
+        success: true,
+        students,
+      });
+    } catch (error: any) {
+      console.error('Error fetching roster:', error);
+      return res.status(500).json({
+        success: false,
+        message: `Error fetching roster data: ${error.message || 'Unknown error'}`,
+      });
+    }
+  });
+
   const httpServer = createServer(app);
   
   // Set up WebSocket for real-time updates on a different path to avoid conflicts with Vite
