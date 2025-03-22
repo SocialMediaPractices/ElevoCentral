@@ -20,10 +20,6 @@ import {
 import passport from "./auth";
 import { hashPassword, hasRole, hasPermission } from "./auth";
 import { WebSocket, WebSocketServer } from 'ws';
-import path from 'path';
-import fs from 'fs';
-import { importAttendanceData } from './utils/excel-import';
-import multer from 'multer';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Authentication routes
@@ -541,7 +537,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(404).json({ message: "Incident not found" });
     }
     
-    // Get student and reporter info
     const student = incident.studentId ? await storage.getStudent(incident.studentId) : undefined;
     const reporter = incident.reportedByStaffId ? await storage.getStaff(incident.reportedByStaffId) : undefined;
     
@@ -570,7 +565,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
   
-  app.post("/api/behavior-incidents", hasPermission('behavior-management'), async (req, res) => {
+  app.post("/api/behavior-incidents", hasRole('staff'), async (req, res) => {
     try {
       const incidentData = insertBehaviorIncidentSchema.parse(req.body);
       const incident = await storage.createBehaviorIncident(incidentData);
@@ -584,7 +579,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.patch("/api/behavior-incidents/:id/resolve", hasRole('staff'), async (req, res) => {
+  app.patch("/api/behavior-incidents/:id/resolve", hasPermission('behavior-management'), async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid incident ID" });
@@ -609,22 +604,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(400).json({ message: "Invalid incident ID" });
     }
     
-    const today = new Date().toISOString().split('T')[0];
+    const notificationDate = req.body.date || new Date().toISOString().split('T')[0];
     
     try {
-      const updatedIncident = await storage.setParentNotified(id, today);
+      const updatedIncident = await storage.setParentNotified(id, notificationDate);
       res.json(updatedIncident);
     } catch (error) {
-      res.status(500).json({ message: "Failed to mark parent as notified" });
+      res.status(500).json({ message: "Failed to update parent notification status" });
     }
   });
   
   // Behavior Notes routes
-  app.get("/api/behavior-notes", hasPermission('behavior-management'), async (req, res) => {
-    const { studentId, limit } = req.query;
+  app.get("/api/behavior-notes", hasRole(['staff', 'admin', 'parent']), async (req, res) => {
+    const { studentId, limit, parentVisible } = req.query;
     
     let notes;
-    if (studentId) {
+    if (studentId && parentVisible === "true") {
+      notes = await storage.getParentVisibleNotes(parseInt(studentId as string));
+    } else if (studentId) {
       notes = await storage.getNotesByStudent(parseInt(studentId as string));
     } else if (limit) {
       notes = await storage.getRecentNotes(parseInt(limit as string));
@@ -668,101 +665,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(notesWithDetails);
   });
   
-  app.get("/api/behavior-notes/parent-visible", hasRole('parent'), async (req, res) => {
-    // Get the parent's ID from the authenticated user
-    const parentId = (req.user as any).id;
-    
-    // Get the parent's children
-    const children = await storage.getStudentsByParentId(parentId);
-    
-    // If no children, return empty array
-    if (!children || children.length === 0) {
-      return res.json([]);
-    }
-    
-    // Get notes for each child that are parent-visible
-    const allNotes: BehaviorNote[] = [];
-    for (const child of children) {
-      const notes = await storage.getParentVisibleNotes(child.id);
-      allNotes.push(...notes);
-    }
-    
-    // Get student and staff info for each note
-    const notesWithDetails = await Promise.all(
-      allNotes.map(async (note) => {
-        const student = note.studentId ? await storage.getStudent(note.studentId) : undefined;
-        const staffMember = note.staffId ? await storage.getStaff(note.staffId) : undefined;
-        
-        let staffInfo = undefined;
-        if (staffMember && staffMember.userId) {
-          const staffUser = await storage.getUser(staffMember.userId);
-          if (staffUser) {
-            staffInfo = {
-              id: staffMember.id,
-              name: staffUser.fullName,
-              title: staffMember.title,
-              profileImageUrl: staffUser.profileImageUrl
-            };
-          }
-        }
-        
-        return {
-          ...note,
-          student: student ? {
-            id: student.id,
-            name: `${student.firstName} ${student.lastName}`,
-            grade: student.grade,
-            profileImageUrl: student.profileImageUrl
-          } : undefined,
-          staff: staffInfo
-        };
-      })
-    );
-    
-    res.json(notesWithDetails);
-  });
-  
-  app.get("/api/behavior-notes/:id", hasPermission('behavior-management'), async (req, res) => {
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) {
-      return res.status(400).json({ message: "Invalid note ID" });
-    }
-    
-    const note = await storage.getBehaviorNote(id);
-    if (!note) {
-      return res.status(404).json({ message: "Note not found" });
-    }
-    
-    // Get student and staff info
-    const student = note.studentId ? await storage.getStudent(note.studentId) : undefined;
-    const staffMember = note.staffId ? await storage.getStaff(note.staffId) : undefined;
-    
-    let staffInfo = undefined;
-    if (staffMember && staffMember.userId) {
-      const staffUser = await storage.getUser(staffMember.userId);
-      if (staffUser) {
-        staffInfo = {
-          id: staffMember.id,
-          name: staffUser.fullName,
-          title: staffMember.title,
-          profileImageUrl: staffUser.profileImageUrl
-        };
-      }
-    }
-    
-    res.json({
-      ...note,
-      student: student ? {
-        id: student.id,
-        name: `${student.firstName} ${student.lastName}`,
-        grade: student.grade,
-        profileImageUrl: student.profileImageUrl
-      } : undefined,
-      staff: staffInfo
-    });
-  });
-  
-  app.post("/api/behavior-notes", hasRole('staff'), async (req, res) => {
+  app.post("/api/behavior-notes", hasRole(['staff', 'admin']), async (req, res) => {
     try {
       const noteData = insertBehaviorNoteSchema.parse(req.body);
       const note = await storage.createBehaviorNote(noteData);
@@ -771,7 +674,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         res.status(400).json({ message: "Invalid note data", errors: error.errors });
       } else {
-        res.status(500).json({ message: "Failed to create note" });
+        res.status(500).json({ message: "Failed to create behavior note" });
       }
     }
   });
@@ -839,65 +742,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(transitionsWithDetails);
   });
   
-  app.get("/api/tier-transitions/:id", hasPermission('behavior-management'), async (req, res) => {
-    const id = parseInt(req.params.id);
-    if (isNaN(id)) {
-      return res.status(400).json({ message: "Invalid transition ID" });
-    }
-    
-    const transition = await storage.getTierTransition(id);
-    if (!transition) {
-      return res.status(404).json({ message: "Transition not found" });
-    }
-    
-    // Get student and authorizer info
-    const student = transition.studentId ? await storage.getStudent(transition.studentId) : undefined;
-    const authorizer = transition.authorizedById ? await storage.getStaff(transition.authorizedById) : undefined;
-    
-    let authorizerInfo = undefined;
-    if (authorizer && authorizer.userId) {
-      const authorizerUser = await storage.getUser(authorizer.userId);
-      if (authorizerUser) {
-        authorizerInfo = {
-          id: authorizer.id,
-          name: authorizerUser.fullName,
-          title: authorizer.title,
-          profileImageUrl: authorizerUser.profileImageUrl
-        };
-      }
-    }
-    
-    res.json({
-      ...transition,
-      student: student ? {
-        id: student.id,
-        name: `${student.firstName} ${student.lastName}`,
-        grade: student.grade,
-        profileImageUrl: student.profileImageUrl
-      } : undefined,
-      authorizedBy: authorizerInfo
-    });
-  });
-  
-  app.post("/api/tier-transitions", hasRole(['admin', 'site-manager', 'youth-development-lead']), async (req, res) => {
+  app.post("/api/tier-transitions", hasPermission('behavior-management'), async (req, res) => {
     try {
       const transitionData = insertTierTransitionSchema.parse(req.body);
       const transition = await storage.createTierTransition(transitionData);
-      
-      // Update the student's current tier
-      await storage.updateStudentTier(transitionData.studentId, transitionData.toTier, transitionData.date);
-      
       res.status(201).json(transition);
     } catch (error) {
       if (error instanceof z.ZodError) {
         res.status(400).json({ message: "Invalid transition data", errors: error.errors });
       } else {
-        res.status(500).json({ message: "Failed to create transition" });
+        res.status(500).json({ message: "Failed to create tier transition" });
       }
     }
   });
-  
-  // Homework routes
+
+  // Dashboard stats endpoint
+  app.get("/api/dashboard/stats", hasRole(['admin', 'staff'], true), async (req, res) => {
+    const date = req.query.date as string || new Date().toISOString().split('T')[0];
+    
+    const activities = await storage.getActivitiesByDate(date);
+    const staff = await storage.getActiveStaff();
+    const announcements = await storage.getRecentAnnouncements(3);
+    
+    // Calculate total students across all activities for today
+    const studentCount = activities.reduce((total, activity) => total + (activity.studentCount || 0), 0);
+    
+    res.json({
+      studentCount,
+      activitiesCount: activities.length,
+      staffCount: staff.length,
+      announcementsCount: announcements.length
+    });
+  });
+
+  // Homework assignments routes
   app.get("/api/homework", hasRole(['staff', 'admin', 'parent', 'student']), async (req, res) => {
     const { studentId, activityId, staffId, status } = req.query;
     
@@ -910,43 +788,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
       assignments = await storage.getHomeworkByStaff(parseInt(staffId as string));
     } else if (status === "pending") {
       assignments = await storage.getPendingHomework();
+    } else if (status) {
+      // Filter by status if provided
+      const allAssignments = await storage.getAllHomeworkAssignments();
+      assignments = allAssignments.filter(assignment => assignment.status === status);
     } else {
       // Return all homework assignments by default
       assignments = await storage.getAllHomeworkAssignments();
     }
     
-    // Get student, activity, and staff info for each assignment
+    // Get student and staff info for each assignment
     const assignmentsWithDetails = await Promise.all(
       assignments.map(async (assignment) => {
-        const student = assignment.studentId ? await storage.getStudent(assignment.studentId) : null;
-        const activity = assignment.activityId ? await storage.getActivity(assignment.activityId) : null;
-        const assignedBy = assignment.assignedByStaffId ? await storage.getStaff(assignment.assignedByStaffId) : null;
-        const verifiedBy = assignment.verifiedByStaffId ? await storage.getStaff(assignment.verifiedByStaffId) : null;
+        const student = assignment.studentId ? await storage.getStudent(assignment.studentId) : undefined;
+        const activity = assignment.activityId ? await storage.getActivity(assignment.activityId) : undefined;
+        const staff = assignment.assignedByStaffId ? await storage.getStaff(assignment.assignedByStaffId) : undefined;
+        const verifier = assignment.verifiedByStaffId ? await storage.getStaff(assignment.verifiedByStaffId) : undefined;
         
-        let assignedByInfo = null;
-        if (assignedBy && assignedBy.userId) {
-          const assignedByUser = await storage.getUser(assignedBy.userId);
-          if (assignedByUser) {
-            assignedByInfo = {
-              id: assignedBy.id,
-              firstName: assignedByUser.fullName.split(' ')[0],
-              lastName: assignedByUser.fullName.split(' ').slice(1).join(' '),
-              title: assignedBy.title,
-              profileImageUrl: assignedByUser.profileImageUrl
+        let staffInfo = undefined;
+        if (staff && staff.userId) {
+          const staffUser = await storage.getUser(staff.userId);
+          if (staffUser) {
+            staffInfo = {
+              id: staff.id,
+              name: staffUser.fullName,
+              title: staff.title,
+              profileImageUrl: staffUser.profileImageUrl
             };
           }
         }
         
-        let verifiedByInfo = null;
-        if (verifiedBy && verifiedBy.userId) {
-          const verifiedByUser = await storage.getUser(verifiedBy.userId);
-          if (verifiedByUser) {
-            verifiedByInfo = {
-              id: verifiedBy.id,
-              firstName: verifiedByUser.fullName.split(' ')[0],
-              lastName: verifiedByUser.fullName.split(' ').slice(1).join(' '),
-              title: verifiedBy.title,
-              profileImageUrl: verifiedByUser.profileImageUrl
+        let verifierInfo = undefined;
+        if (verifier && verifier.userId) {
+          const verifierUser = await storage.getUser(verifier.userId);
+          if (verifierUser) {
+            verifierInfo = {
+              id: verifier.id,
+              name: verifierUser.fullName,
+              title: verifier.title,
+              profileImageUrl: verifierUser.profileImageUrl
             };
           }
         }
@@ -955,18 +835,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ...assignment,
           student: student ? {
             id: student.id,
-            firstName: student.firstName,
-            lastName: student.lastName,
+            name: `${student.firstName} ${student.lastName}`,
             grade: student.grade,
             profileImageUrl: student.profileImageUrl
-          } : null,
+          } : undefined,
           activity: activity ? {
             id: activity.id,
             name: activity.name,
             type: activity.activityType
-          } : null,
-          assignedBy: assignedByInfo,
-          verifiedBy: verifiedByInfo
+          } : undefined,
+          assignedBy: staffInfo,
+          verifiedBy: verifierInfo
         };
       })
     );
@@ -985,36 +864,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(404).json({ message: "Homework assignment not found" });
     }
     
-    // Get student, activity, and staff info
-    const student = assignment.studentId ? await storage.getStudent(assignment.studentId) : null;
-    const activity = assignment.activityId ? await storage.getActivity(assignment.activityId) : null;
-    const assignedBy = assignment.assignedByStaffId ? await storage.getStaff(assignment.assignedByStaffId) : null;
-    const verifiedBy = assignment.verifiedByStaffId ? await storage.getStaff(assignment.verifiedByStaffId) : null;
+    const student = assignment.studentId ? await storage.getStudent(assignment.studentId) : undefined;
+    const activity = assignment.activityId ? await storage.getActivity(assignment.activityId) : undefined;
+    const staff = assignment.assignedByStaffId ? await storage.getStaff(assignment.assignedByStaffId) : undefined;
+    const verifier = assignment.verifiedByStaffId ? await storage.getStaff(assignment.verifiedByStaffId) : undefined;
     
-    let assignedByInfo = null;
-    if (assignedBy && assignedBy.userId) {
-      const assignedByUser = await storage.getUser(assignedBy.userId);
-      if (assignedByUser) {
-        assignedByInfo = {
-          id: assignedBy.id,
-          firstName: assignedByUser.fullName.split(' ')[0],
-          lastName: assignedByUser.fullName.split(' ').slice(1).join(' '),
-          title: assignedBy.title,
-          profileImageUrl: assignedByUser.profileImageUrl
+    let staffInfo = undefined;
+    if (staff && staff.userId) {
+      const staffUser = await storage.getUser(staff.userId);
+      if (staffUser) {
+        staffInfo = {
+          id: staff.id,
+          name: staffUser.fullName,
+          title: staff.title,
+          profileImageUrl: staffUser.profileImageUrl
         };
       }
     }
     
-    let verifiedByInfo = null;
-    if (verifiedBy && verifiedBy.userId) {
-      const verifiedByUser = await storage.getUser(verifiedBy.userId);
-      if (verifiedByUser) {
-        verifiedByInfo = {
-          id: verifiedBy.id,
-          firstName: verifiedByUser.fullName.split(' ')[0],
-          lastName: verifiedByUser.fullName.split(' ').slice(1).join(' '),
-          title: verifiedBy.title,
-          profileImageUrl: verifiedByUser.profileImageUrl
+    let verifierInfo = undefined;
+    if (verifier && verifier.userId) {
+      const verifierUser = await storage.getUser(verifier.userId);
+      if (verifierUser) {
+        verifierInfo = {
+          id: verifier.id,
+          name: verifierUser.fullName,
+          title: verifier.title,
+          profileImageUrl: verifierUser.profileImageUrl
         };
       }
     }
@@ -1023,18 +899,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       ...assignment,
       student: student ? {
         id: student.id,
-        firstName: student.firstName,
-        lastName: student.lastName,
+        name: `${student.firstName} ${student.lastName}`,
         grade: student.grade,
         profileImageUrl: student.profileImageUrl
-      } : null,
+      } : undefined,
       activity: activity ? {
         id: activity.id,
         name: activity.name,
         type: activity.activityType
-      } : null,
-      assignedBy: assignedByInfo,
-      verifiedBy: verifiedByInfo
+      } : undefined,
+      assignedBy: staffInfo,
+      verifiedBy: verifierInfo
     });
   });
   
@@ -1059,14 +934,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     
     const { status, completedDate, completionNotes } = req.body;
+    if (!status) {
+      return res.status(400).json({ message: "Status is required" });
+    }
     
     try {
-      const updatedAssignment = await storage.updateHomeworkStatus(
-        id, 
-        status,
-        completedDate,
-        completionNotes
-      );
+      const updatedAssignment = await storage.updateHomeworkStatus(id, status, completedDate, completionNotes);
       res.json(updatedAssignment);
     } catch (error) {
       res.status(500).json({ message: "Failed to update homework status" });
@@ -1079,13 +952,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(400).json({ message: "Invalid homework assignment ID" });
     }
     
-    const staffId = parseInt(req.body.staffId);
-    if (isNaN(staffId)) {
-      return res.status(400).json({ message: "Invalid staff ID" });
+    const { staffId } = req.body;
+    if (!staffId) {
+      return res.status(400).json({ message: "Staff ID is required" });
     }
     
     try {
-      const updatedAssignment = await storage.verifyHomeworkCompletion(id, staffId);
+      const updatedAssignment = await storage.verifyHomeworkCompletion(id, parseInt(staffId));
       res.json(updatedAssignment);
     } catch (error) {
       res.status(500).json({ message: "Failed to verify homework completion" });
@@ -1102,99 +975,125 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updatedAssignment = await storage.notifyParentAboutHomework(id);
       res.json(updatedAssignment);
     } catch (error) {
-      res.status(500).json({ message: "Failed to mark parent as notified" });
+      res.status(500).json({ message: "Failed to update parent notification status" });
+    }
+  });
+
+  // Get students by dismissal time
+  app.get("/api/students/dismissal/:time", hasRole(['admin', 'staff', 'parent']), async (req, res) => {
+    try {
+      const dismissalTime = req.params.time;
+      
+      // Validate dismissal time
+      if (!["4:30", "5:00", "5:30", "6:00"].includes(dismissalTime)) {
+        return res.status(400).json({ error: "Invalid dismissal time" });
+      }
+      
+      const students = await storage.getStudentsByDismissalTime(dismissalTime);
+      
+      // For security, only return necessary information
+      const studentsData = students.map(student => ({
+        id: student.id,
+        name: `${student.firstName} ${student.lastName}`,
+        grade: student.grade,
+        dismissalTime: student.dismissalTime,
+        profileImageUrl: student.profileImageUrl
+      }));
+      
+      res.json(studentsData);
+    } catch (error) {
+      console.error("Error fetching students by dismissal time:", error);
+      res.status(500).json({ error: "Failed to fetch students by dismissal time" });
     }
   });
   
-  // Parent dashboard data
-  app.get("/api/parent-dashboard", hasRole('parent'), async (req, res) => {
+  // Update student dismissal time
+  app.patch("/api/students/:id/dismissal", hasRole(['admin', 'staff']), async (req, res) => {
     try {
-      // Get the parent's ID from the authenticated user
-      const parentId = (req.user as any).id;
+      const studentId = parseInt(req.params.id);
+      const { dismissalTime } = req.body;
       
-      // Get the parent's children
+      // Validate dismissal time
+      if (!["4:30", "5:00", "5:30", "6:00"].includes(dismissalTime)) {
+        return res.status(400).json({ error: "Invalid dismissal time" });
+      }
+      
+      const updatedStudent = await storage.updateStudentDismissalTime(studentId, dismissalTime);
+      
+      // For security, only return necessary information
+      const studentData = {
+        id: updatedStudent.id,
+        name: `${updatedStudent.firstName} ${updatedStudent.lastName}`,
+        grade: updatedStudent.grade,
+        dismissalTime: updatedStudent.dismissalTime
+      };
+      
+      res.json(studentData);
+    } catch (error) {
+      console.error("Error updating student dismissal time:", error);
+      res.status(500).json({ error: "Failed to update student dismissal time" });
+    }
+  });
+
+  // Parent dashboard data endpoint
+  app.get("/api/parent/dashboard", hasRole('parent'), async (req, res) => {
+    try {
+      const user = req.user as any;
+      const parentId = user.id;
+      
+      // Get children info
       const children = await storage.getStudentsByParentId(parentId);
       
-      if (!children || children.length === 0) {
+      if (!children.length) {
         return res.json({
           children: [],
           recentHomework: [],
           unreadNotes: [],
-          recentIncidents: [],
-          dailySchedule: null
+          recentIncidents: []
         });
       }
       
-      // Format children data
-      const formattedChildren = children.map(child => ({
-        id: child.id,
-        name: `${child.firstName} ${child.lastName}`,
-        grade: child.grade,
-        profileImageUrl: child.profileImageUrl,
-        behaviorTier: child.currentTier,
-        dismissalTime: child.dismissalTime
-      }));
-      
-      // Get behavior incidents data
-      let allIncidents: BehaviorIncident[] = [];
-      for (const child of children) {
-        const incidents = await storage.getIncidentsByStudent(child.id);
-        const recentIncidents = incidents
-          .filter(incident => incident.parentNotified) // Only include incidents where parent was notified
-          .sort((a, b) => {
-            // Sort by date and time, most recent first
-            const dateA = new Date(`${a.incidentDate}T${a.incidentTime}`);
-            const dateB = new Date(`${b.incidentDate}T${b.incidentTime}`);
-            return dateB.getTime() - dateA.getTime();
-          })
-          .slice(0, 5); // Get the 5 most recent
-        
-        allIncidents = [...allIncidents, ...recentIncidents];
-      }
-      
-      // Get unread behavior notes
-      let allUnreadNotes: BehaviorNote[] = [];
-      for (const child of children) {
-        const notes = await storage.getParentVisibleNotes(child.id);
-        const unreadNotes = notes.filter(note => !note.parentRead);
-        allUnreadNotes = [...allUnreadNotes, ...unreadNotes];
-      }
-      
       // Get recent homework assignments
+      const childrenIds = children.map(child => child.id);
+      
+      // Store all homework assignments
       let allHomework: HomeworkAssignment[] = [];
-      for (const childId of children.map(c => c.id)) {
+      for (const childId of childrenIds) {
         const homework = await storage.getHomeworkByStudent(childId);
         allHomework = [...allHomework, ...homework];
       }
       
-      // Sort by due date (most recent first) and take only the 5 most recent
+      // Sort by due date and take only the 5 most recent
       const recentHomework = allHomework
-        .sort((a, b) => new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime())
+        .sort((a, b) => new Date(b.assignedDate).getTime() - new Date(a.assignedDate).getTime())
         .slice(0, 5);
       
       // Enhance homework with additional data
       const homeworkWithDetails = await Promise.all(
-        recentHomework.map(async (assignment) => {
-          const student = assignment.studentId ? await storage.getStudent(assignment.studentId) : null;
-          const activity = assignment.activityId ? await storage.getActivity(assignment.activityId) : null;
-          const assignedBy = assignment.assignedByStaffId ? await storage.getStaff(assignment.assignedByStaffId) : null;
+        recentHomework.map(async (hw) => {
+          const student = await storage.getStudent(hw.studentId);
+          const activity = await storage.getActivity(hw.activityId);
+          const assignedBy = await storage.getStaff(hw.assignedByStaffId);
+          const assignedByUser = assignedBy?.userId ? await storage.getUser(assignedBy.userId) : null;
           
-          let assignedByInfo = null;
-          if (assignedBy && assignedBy.userId) {
-            const assignedByUser = await storage.getUser(assignedBy.userId);
-            if (assignedByUser) {
-              assignedByInfo = {
-                id: assignedBy.id,
-                firstName: assignedByUser.fullName.split(' ')[0],
-                lastName: assignedByUser.fullName.split(' ').slice(1).join(' '),
-                title: assignedBy.title,
-                profileImageUrl: assignedByUser.profileImageUrl
+          let verifiedBy = null;
+          if (hw.verifiedByStaffId) {
+            const verifier = await storage.getStaff(hw.verifiedByStaffId);
+            const verifierUser = verifier?.userId ? await storage.getUser(verifier.userId) : null;
+            
+            if (verifier && verifierUser) {
+              verifiedBy = {
+                id: verifier.id,
+                firstName: verifierUser.fullName.split(' ')[0],
+                lastName: verifierUser.fullName.split(' ').slice(1).join(' '),
+                title: verifier.title,
+                profileImageUrl: verifierUser.profileImageUrl
               };
             }
           }
           
           return {
-            ...assignment,
+            ...hw,
             student: student ? {
               id: student.id,
               firstName: student.firstName,
@@ -1207,29 +1106,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
               name: activity.name,
               type: activity.activityType
             } : null,
-            assignedBy: assignedByInfo
+            assignedBy: assignedBy && assignedByUser ? {
+              id: assignedBy.id,
+              firstName: assignedByUser.fullName.split(' ')[0],
+              lastName: assignedByUser.fullName.split(' ').slice(1).join(' '),
+              title: assignedBy.title,
+              profileImageUrl: assignedByUser.profileImageUrl
+            } : null,
+            verifiedBy
           };
         })
       );
       
-      // Enhance behavior notes with additional data
+      // Get unread behavior notes
+      let unreadNotes: BehaviorNote[] = [];
+      for (const childId of childrenIds) {
+        const notes = await storage.getParentVisibleNotes(childId);
+        // Filter for notes that haven't been read
+        const unread = notes.filter(note => !note.parentRead);
+        unreadNotes = [...unreadNotes, ...unread];
+      }
+      
+      // Enhance notes with student and staff info
       const notesWithDetails = await Promise.all(
-        allUnreadNotes.map(async (note) => {
-          const student = note.studentId ? await storage.getStudent(note.studentId) : undefined;
-          const staffMember = note.staffId ? await storage.getStaff(note.staffId) : undefined;
-          
-          let staffInfo = undefined;
-          if (staffMember && staffMember.userId) {
-            const staffUser = await storage.getUser(staffMember.userId);
-            if (staffUser) {
-              staffInfo = {
-                id: staffMember.id,
-                name: staffUser.fullName,
-                title: staffMember.title,
-                profileImageUrl: staffUser.profileImageUrl
-              };
-            }
-          }
+        unreadNotes.map(async (note) => {
+          const student = await storage.getStudent(note.studentId);
+          const staffMember = await storage.getStaff(note.staffId);
+          const staffUser = staffMember?.userId ? await storage.getUser(staffMember.userId) : null;
           
           return {
             ...note,
@@ -1238,30 +1141,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
               name: `${student.firstName} ${student.lastName}`,
               grade: student.grade,
               profileImageUrl: student.profileImageUrl
-            } : undefined,
-            staff: staffInfo
+            } : null,
+            staff: staffMember && staffUser ? {
+              id: staffMember.id,
+              name: staffUser.fullName,
+              title: staffMember.title,
+              profileImageUrl: staffUser.profileImageUrl
+            } : null
           };
         })
       );
       
-      // Enhance incidents with additional data
+      // Get recent behavior incidents
+      let recentIncidents: BehaviorIncident[] = [];
+      for (const childId of childrenIds) {
+        const incidents = await storage.getIncidentsByStudent(childId);
+        // Filter for incidents where parent has been notified
+        const notifiedIncidents = incidents.filter(incident => incident.parentNotified);
+        recentIncidents = [...recentIncidents, ...notifiedIncidents];
+      }
+      
+      // Sort by date and take only the 5 most recent
+      recentIncidents = recentIncidents
+        .sort((a, b) => new Date(b.incidentDate).getTime() - new Date(a.incidentDate).getTime())
+        .slice(0, 5);
+      
+      // Enhance incidents with student and reporter info
       const incidentsWithDetails = await Promise.all(
-        allIncidents.map(async (incident) => {
-          const student = incident.studentId ? await storage.getStudent(incident.studentId) : undefined;
-          const reporter = incident.reportedByStaffId ? await storage.getStaff(incident.reportedByStaffId) : undefined;
-          
-          let reporterInfo = undefined;
-          if (reporter && reporter.userId) {
-            const reporterUser = await storage.getUser(reporter.userId);
-            if (reporterUser) {
-              reporterInfo = {
-                id: reporter.id,
-                name: reporterUser.fullName,
-                title: reporter.title,
-                profileImageUrl: reporterUser.profileImageUrl
-              };
-            }
-          }
+        recentIncidents.map(async (incident) => {
+          const student = await storage.getStudent(incident.studentId);
+          const reporter = incident.reportedByStaffId ? await storage.getStaff(incident.reportedByStaffId) : null;
+          const reporterUser = reporter?.userId ? await storage.getUser(reporter.userId) : null;
           
           return {
             ...incident,
@@ -1270,113 +1180,208 @@ export async function registerRoutes(app: Express): Promise<Server> {
               name: `${student.firstName} ${student.lastName}`,
               grade: student.grade,
               profileImageUrl: student.profileImageUrl
-            } : undefined,
-            reporter: reporterInfo
+            } : null,
+            reporter: reporter && reporterUser ? {
+              id: reporter.id,
+              name: reporterUser.fullName,
+              title: reporter.title,
+              profileImageUrl: reporterUser.profileImageUrl
+            } : null
           };
         })
       );
       
-      // Hardcoded daily schedule for now, this would come from a settings table in the future
+      // Daily schedule information based on the document
       const dailySchedule = {
         regularDay: {
           checkIn: {
-            kindergarten: "8:00 AM",
-            regular: "8:15 AM"
+            kindergarten: "2:30 PM",
+            regular: "2:55 PM"
           },
           periods: [
             {
-              time: "8:30 AM - 9:30 AM",
+              time: "3:00 - 3:30 PM",
               activities: [
-                { grade: "K-2", activity: "Homework Help" },
-                { grade: "3-5", activity: "Reading Club" }
+                { grade: "4th-6th", activity: "Homework" },
+                { grade: "K-3rd", activity: "Supper" }
               ]
             },
             {
-              time: "9:45 AM - 10:45 AM",
+              time: "3:30 - 4:00 PM",
               activities: [
-                { grade: "K-2", activity: "Arts & Crafts" },
-                { grade: "3-5", activity: "STEM Activities" }
+                { grade: "4th-6th", activity: "Supper" },
+                { grade: "K-3rd", activity: "Homework or Word of the Week" }
               ]
             },
             {
-              time: "11:00 AM - 12:00 PM",
+              time: "4:00 - 4:30 PM",
               activities: [
-                { grade: "K-2", activity: "Outdoor Play" },
-                { grade: "3-5", activity: "Sports" }
+                { grade: "1st-3rd", activity: "Homework or Word of the Week" },
+                { grade: "All Grades", activity: "Outside Game Time or Unit Activity" }
               ]
             }
           ],
           dismissalTimes: [
-            { time: "4:30 PM", type: "Early" },
-            { time: "5:00 PM", type: "Regular" },
-            { time: "5:30 PM", type: "Extended" },
-            { time: "6:00 PM", type: "Late" }
+            { time: "4:30 PM", type: "Early Release" },
+            { time: "5:00 PM", type: "Early Release" },
+            { time: "5:30 PM", type: "Early Release" },
+            { time: "6:00 PM", type: "Regular Dismissal" }
           ]
         }
       };
       
-      res.json({
-        children: formattedChildren,
+      // Construct full dashboard data
+      const dashboardData = {
+        children: children.map(child => ({
+          id: child.id,
+          name: `${child.firstName} ${child.lastName}`,
+          grade: child.grade,
+          profileImageUrl: child.profileImageUrl,
+          behaviorTier: child.currentTier,
+          dismissalTime: child.dismissalTime
+        })),
         recentHomework: homeworkWithDetails,
         unreadNotes: notesWithDetails,
         recentIncidents: incidentsWithDetails,
-        dailySchedule
-      });
+        dailySchedule: dailySchedule
+      };
+      
+      res.json(dashboardData);
     } catch (error) {
-      console.error('Error fetching parent dashboard data:', error);
-      res.status(500).json({
-        message: 'Error fetching parent dashboard data',
-        success: false
-      });
+      console.error("Error getting parent dashboard data:", error);
+      res.status(500).json({ message: "Failed to fetch parent dashboard data" });
     }
   });
-  
-  // Add a simple route for handling Excel file uploading and roster imports
-  
-  // Set up storage for uploaded files
-  const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-      const uploadsDir = path.join(__dirname, 'uploads');
+
+  // Register the roster routes
+  // Route to import student data from Excel
+  app.post('/api/roster/import', async (req, res) => {
+    try {
+      console.log('[DEBUG] Roster import route accessed by:', req.user);
       
-      // Create uploads directory if it doesn't exist
-      if (!fs.existsSync(uploadsDir)) {
-        fs.mkdirSync(uploadsDir, { recursive: true });
+      // Validate authorization
+      const user = req.user as any;
+      if (!user || !req.isAuthenticated()) {
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication required',
+        });
       }
       
-      cb(null, uploadsDir);
-    },
-    filename: function (req, file, cb) {
-      // Create a unique filename
-      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-      cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+      // Allow access for admin users
+      if (user.role === 'admin') {
+        // Admin users have access
+      } 
+      // Allow access for staff with youth-development-lead role
+      else if (user.role === 'staff') {
+        try {
+          const staffMember = await storage.getStaffByUserId(user.id);
+          if (!staffMember || staffMember.staffRole !== 'youth-development-lead') {
+            return res.status(403).json({
+              success: false,
+              message: 'Access denied. Required role: youth-development-lead',
+            });
+          }
+        } catch (error) {
+          console.error('Error checking staff role for roster import:', error);
+          return res.status(500).json({
+            success: false,
+            message: 'Error checking authorization',
+          });
+        }
+      } else {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied',
+        });
+      }
+      const { filePath } = req.body;
+      
+      if (!filePath) {
+        return res.status(400).json({
+          success: false,
+          message: 'File path is required',
+        });
+      }
+      
+      // Import the attendance data
+      const { importAttendanceData } = await import('./utils/excel-import');
+      const result = await importAttendanceData(filePath);
+      
+      if (!result.success) {
+        return res.status(400).json(result);
+      }
+      
+      return res.status(200).json(result);
+    } catch (error: any) {
+      console.error('Error in roster import:', error);
+      return res.status(500).json({
+        success: false,
+        message: `Error importing roster data: ${error.message || 'Unknown error'}`,
+      });
     }
   });
   
-  const upload = multer({ storage: storage });
-  
-  // Handle roster data import from Excel file
-  app.post('/api/roster/import', hasRole(['admin', 'site-manager', 'youth-development-lead']), upload.single('rosterFile'), async (req, res) => {
-    if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        message: 'No file uploaded'
-      });
-    }
-    
+  // Get all students (roster data)
+  app.get('/api/roster', async (req, res) => {
     try {
-      const result = await importAttendanceData(req.file.path);
+      console.log('[DEBUG] Roster route accessed by:', req.user);
       
-      // Clean up the file after import
-      fs.unlinkSync(req.file.path);
+      // Validate authorization
+      const user = req.user as any;
+      if (!user || !req.isAuthenticated()) {
+        return res.status(401).json({
+          success: false,
+          message: 'Authentication required',
+        });
+      }
       
-      res.json({
+      // Allow access for admin users
+      if (user.role === 'admin') {
+        // Admin users have access
+      } 
+      // Allow access for staff with permitted roles
+      else if (user.role === 'staff') {
+        try {
+          const staffMember = await storage.getStaffByUserId(user.id);
+          if (!staffMember) {
+            return res.status(403).json({
+              success: false,
+              message: 'Staff record not found',
+            });
+          }
+          
+          // Check staff role
+          const allowedRoles = ['site-manager', 'youth-development-lead', 'coach'];
+          if (!allowedRoles.includes(staffMember.staffRole)) {
+            return res.status(403).json({
+              success: false,
+              message: 'Access denied. Required role: site-manager, youth-development-lead, or coach',
+            });
+          }
+        } catch (error) {
+          console.error('Error checking staff role for roster access:', error);
+          return res.status(500).json({
+            success: false,
+            message: 'Error checking authorization',
+          });
+        }
+      } else {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied',
+        });
+      }
+    try {
+      const students = await storage.getAllStudents();
+      
+      return res.status(200).json({
         success: true,
-        message: 'Roster imported successfully',
-        result
+        students,
       });
-    } catch (error) {
-      console.error('Error importing roster:', error);
-      res.status(500).json({
+    } catch (error: any) {
+      console.error('Error fetching roster:', error);
+      return res.status(500).json({
         success: false,
         message: `Error fetching roster data: ${error.message || 'Unknown error'}`,
       });
@@ -1393,26 +1398,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Handle WebSocket connections
   wss.on('connection', (ws) => {
-    console.log('WebSocket client connected');
+    console.log('Client connected to WebSocket');
+    
+    // Send a welcome message
+    ws.send(JSON.stringify({
+      type: 'connection',
+      message: 'Connected to Elevo Central real-time updates'
+    }));
     
     // Handle messages from client
     ws.on('message', (message) => {
       try {
         const data = JSON.parse(message.toString());
+        console.log('Received:', data);
         
-        // Handle subscription requests
+        // Handle different message types
         if (data.type === 'subscribe') {
-          ws.entityType = data.entityType;
+          // Subscribe to updates for specific entity
           ws.entityId = data.entityId;
-          console.log(`Client subscribed to ${data.entityType} with ID: ${data.entityId}`);
+          ws.entityType = data.entityType;
+          console.log(`Client subscribed to ${data.entityType} updates for ID: ${data.entityId}`);
         }
       } catch (error) {
         console.error('Error processing WebSocket message:', error);
       }
     });
     
+    // Handle client disconnect
     ws.on('close', () => {
-      console.log('WebSocket client disconnected');
+      console.log('Client disconnected from WebSocket');
     });
   });
   
