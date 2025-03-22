@@ -43,9 +43,16 @@ function ProtectedRoute({ component: Component, adminOnly = false, ...rest }: an
     },
   });
 
-  // While checking auth status, show nothing or a loading spinner
+  // While checking auth status, show a detailed loading spinner
   if (isLoading) {
-    return <div className="flex items-center justify-center h-screen">Loading...</div>;
+    console.log("Auth check in progress...");
+    return (
+      <div className="flex flex-col items-center justify-center h-screen bg-gray-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mb-4"></div>
+        <p className="text-lg text-gray-600">Checking authentication status...</p>
+        <p className="text-sm text-gray-400 mt-2">If this screen persists, please try refreshing the page.</p>
+      </div>
+    );
   }
   
   // If not authenticated, redirect to login
